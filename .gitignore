@@ -1,0 +1,31 @@
+# Internal / private
+patents/
+briefs/
+_internal*
+
+# LaTeX
+*.tex
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.toc
+*.lof
+*.lot
+
+# PDFs (paper PDF distributed separately via ePrint)
+*.pdf
+
+# Compiled binaries
+*.exe
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib

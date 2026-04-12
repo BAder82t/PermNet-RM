@@ -1,4 +1,4 @@
-# PermNet-RM
+# PermNet-RM — The Unmasked Butterfly
 
 A provably constant-time Reed-Muller encoder for HQC via GF(2) zeta-transform butterfly decomposition.
 

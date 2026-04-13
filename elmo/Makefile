@@ -1,0 +1,88 @@
+# ============================================================================
+# Makefile -- build PermNet-RM and BIT0MASK ARM Thumb binaries for ELMO,
+#             then run ELMO power simulation on both.
+# ============================================================================
+
+PREFIX     ?= arm-none-eabi
+CC         := $(PREFIX)-gcc
+OBJCOPY    := $(PREFIX)-objcopy
+OBJDUMP    := $(PREFIX)-objdump
+
+ARCH_FLAGS  = -mthumb -mcpu=cortex-m0 -msoft-float
+GCC_INCDIR  = $(shell $(CC) -print-file-name=include)
+CFLAGS      = -Os -g -ffreestanding -nostdinc -isystem $(GCC_INCDIR) \
+              -fno-common -ffunction-sections -fdata-sections \
+              -Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes
+LDFLAGS     = -nostdlib -Telmo.ld -Wl,--gc-sections
+LDLIBS      = -lgcc
+
+ELMO        = ../elmo_tool/elmo
+ELMO_COEFFS = ../elmo_tool/coeffs.txt
+ELMO_DATA   = ../elmo_tool/Examples/randdata100000.txt
+
+# Common objects
+VECTOR_OBJ  = vector.o
+ASMFUNC_OBJ = elmoasmfunctions.o
+
+TARGETS = permnet bitmask
+
+# ============================================================================
+all: $(addsuffix .bin,$(TARGETS))
+
+# --- Assembly objects -------------------------------------------------------
+$(VECTOR_OBJ): vector.s
+	$(CC) $(ARCH_FLAGS) -c -o $@ $<
+
+$(ASMFUNC_OBJ): elmoasmfunctions.s
+	$(CC) $(ARCH_FLAGS) -c -o $@ $<
+
+# --- PermNet-RM -------------------------------------------------------------
+elmo_permnet.o: elmo_permnet.c elmoasmfunctionsdef.h
+	$(CC) $(CFLAGS) $(ARCH_FLAGS) -c -o $@ $<
+
+permnet.elf: elmo_permnet.o $(VECTOR_OBJ) $(ASMFUNC_OBJ) elmo.ld
+	$(CC) $(LDFLAGS) $(ARCH_FLAGS) $(VECTOR_OBJ) elmo_permnet.o $(ASMFUNC_OBJ) $(LDLIBS) -o $@
+
+# --- BIT0MASK ---------------------------------------------------------------
+elmo_bitmask.o: elmo_bitmask.c elmoasmfunctionsdef.h
+	$(CC) $(CFLAGS) $(ARCH_FLAGS) -c -o $@ $<
+
+bitmask.elf: elmo_bitmask.o $(VECTOR_OBJ) $(ASMFUNC_OBJ) elmo.ld
+	$(CC) $(LDFLAGS) $(ARCH_FLAGS) $(VECTOR_OBJ) elmo_bitmask.o $(ASMFUNC_OBJ) $(LDLIBS) -o $@
+
+# --- Generic rules ----------------------------------------------------------
+%.bin: %.elf
+	$(OBJCOPY) -Obinary $< $@
+
+%.list: %.elf
+	$(OBJDUMP) -S $< > $@
+
+# --- ELMO simulation --------------------------------------------------------
+.PHONY: run run-permnet run-bitmask disasm clean
+
+run: run-permnet run-bitmask
+
+run-permnet: permnet.bin
+	@echo "=== Running ELMO on PermNet-RM encoder ==="
+	@mkdir -p output_permnet/traces
+	cd output_permnet && cp $(ELMO_COEFFS) coeffs.txt && \
+	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput && \
+	    ln -sf $(ELMO_DATA) . && \
+	    $(ELMO) ../permnet.bin --Ntrace 256 2>&1 | tee elmo_log.txt
+	@echo "=== PermNet-RM traces in output_permnet/ ==="
+
+run-bitmask: bitmask.bin
+	@echo "=== Running ELMO on BIT0MASK encoder ==="
+	@mkdir -p output_bitmask/traces
+	cd output_bitmask && cp $(ELMO_COEFFS) coeffs.txt && \
+	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput && \
+	    ln -sf $(ELMO_DATA) . && \
+	    $(ELMO) ../bitmask.bin --Ntrace 256 2>&1 | tee elmo_log.txt
+	@echo "=== BIT0MASK traces in output_bitmask/ ==="
+
+disasm: permnet.list bitmask.list
+	@echo "=== Disassembly generated ==="
+
+clean:
+	rm -f *.o *.elf *.bin *.list *.map *.d
+	rm -rf output_permnet output_bitmask

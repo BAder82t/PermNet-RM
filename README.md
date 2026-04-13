@@ -55,7 +55,7 @@ No message bit is ever compared, branched on, or used to index memory.
 
 Preprint: [Zenodo DOI 10.5281/zenodo.19556200](https://doi.org/10.5281/zenodo.19556200)
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19556200.svg)](https://doi.org/10.5281/zenodo.19556200)
+Preprint: [10.5281/zenodo.19556200](https://doi.org/10.5281/zenodo.19556200)
 
 **BibTeX:**
 ```bibtex

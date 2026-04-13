@@ -51,6 +51,33 @@ gcc -O0 -o bench_O0 source/permnet_rm17_bench.c && ./bench_O0
 3. **Output**: The final register state is the RM(1,m) codeword.
 
 No message bit is ever compared, branched on, or used to index memory.
+## Paper & Citation
+
+Preprint: [Zenodo DOI 10.5281/zenodo.19556200](https://doi.org/10.5281/zenodo.19556200)
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19556200.svg)](https://doi.org/10.5281/zenodo.19556200)
+
+**BibTeX:**
+```bibtex
+@misc{alissaei2026permnet,
+  title     = {PermNet-RM: Eliminating Side-Channel Leakage in HQC 
+               Reed-Muller Encoding via the GF(2) Zeta Transform},
+  author    = {Alissaei, Bader},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.19556200},
+  url       = {https://doi.org/10.5281/zenodo.19556200}
+}
+```
+
+Also add your ORCID to the Author line:
+
+```markdown
+## Author
+Bader Alissaei — [VaultBytes Innovations Ltd](https://vaultbytes.com)  
+ORCID: [0009-0003-5312-383X](https://orcid.org/0009-0003-5312-383X)
+```
+
 
 ## License
 

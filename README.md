@@ -4,7 +4,7 @@ A branch-free, fixed-topology Reed-Muller encoder for HQC, built from a GF(2) ze
 
 ## What this is
 
-PermNet-RM is a drop-in replacement for `reed_muller_encode()` in the HQC reference implementation. At the C source level, the `BIT0MASK` idiom (`mask = -((uint64_t)((m >> i) & 1))`) that the Jeon et al. single-trace attack exploits is fully removed from the encoder body. In the unmasked binary, GCC's optimiser folds the butterfly-to-all-bits propagation of the high half into a single `neg` instruction on m7 (x86-64) and of the isolated 32-bit halves into `neg` on m6 and m7 (Cortex-M0); this is a per-bit residual that the **shared-output masked d=1 variant** ([`source/permnet_rm17_masked_d1_shared_output.c`](./source/permnet_rm17_masked_d1_shared_output.c)) closes by randomising the mask operand. ELMO measures the shared-output variant at 11.1× peak-signal reduction over BIT0MASK and 19.8× bit-6 reduction over the unmasked encoder.
+PermNet-RM is a drop-in replacement for `reed_muller_encode()` in the HQC reference implementation. The `BIT0MASK` idiom (`mask = -((uint64_t)((m >> i) & 1))`) that the Jeon et al. single-trace attack exploits is removed from the encoder body in both the C source and the compiled binary: a per-stage compiler barrier (`__asm__ volatile ("" : "+r"(x))`) prevents GCC from constant-folding the butterfly on isolated-bit registers into a `neg` instruction. Verified on `arm-none-eabi-gcc 15.2.0` at every `-O0..-Ofast` level: zero `negs` in the encoder body. The shared-output masked d=1 variant closes the remaining per-bit integer Hamming-weight residual on 32-bit targets.
 
 The relevant attacks:
 
@@ -20,7 +20,7 @@ The equivalence between RM(1,m) codewords and the GF(2) zeta (Möbius) transform
 - **Binary-level branch-free on x86-64** across six GCC optimisation levels (`-O0` through `-Ofast`) — verified by disassembly grep for conditional-jump mnemonics; enforced in CI.
 - **Zero cycle-count timing spread on x86-64 at `-O3`** across all 256 RM(1,7) inputs under our TSC measurement.
 - **Exhaustive correctness** over the complete input space (256 inputs for RM(1,7), 512 for RM(1,8), and 65,536 `(share0, share1)` pairs for the masked d=1 composition).
-- **Reduced but not eliminated Hamming-weight leakage on 32-bit ARM** in ELMO simulation. A single 32-bit word can still retain dependence on an individual message bit (notably bit 6, which reaches 84.1% of the BIT0MASK peak signal — reproduced below). See paper §5.5 and [LIMITATIONS.md](./LIMITATIONS.md).
+- **Substantial Hamming-weight leakage reduction on 32-bit ARM** in ELMO simulation. The unmasked encoder with compiler barriers halves the bit-6 peak vs the BIT0MASK baseline and cuts the mean per-bit signal by 9.1×; the shared-output masked d=1 variant drives the peak down 11.1× and the bit-6 signal 19.8×. See [LIMITATIONS.md](./LIMITATIONS.md) and the table below.
 - **Not yet measured:** real Cortex-M4 hardware (ChipWhisperer + STM32F303/F415), which is the Jeon attack's actual target platform. ELMO models Cortex-M0 only; no maintained public Cortex-M4 leakage simulator exists (see [elmo/README.md](./elmo/README.md)).
 
 See [LIMITATIONS.md](./LIMITATIONS.md) for the full list.
@@ -31,18 +31,18 @@ See [LIMITATIONS.md](./LIMITATIONS.md) for the full list.
 
 Running the one-command [`elmo/run_table5.sh`](./elmo/run_table5.sh) with the pinned ELMO commit (`sca-research/ELMO` @ `7c4e293`) and `coeffs_M3.txt` reproduces paper Table 5 to four significant figures on a current toolchain (`arm-none-eabi-gcc` 15.2.0):
 
-| Metric | Rerun (2026-04-19) | Paper §5.5 |
-|---|---:|---:|
-| PermNet trace length | 94 cycles | 94 |
-| PermNet max single-bit signal | 3,779.6 | 3,780 |
-| PermNet mean single-bit signal | 586.9 | 587 |
-| BIT0MASK trace length | 293 cycles | 293 |
-| BIT0MASK max single-bit signal | 4,493.4 | 4,493 |
-| BIT0MASK mean single-bit signal | 2,687.0 | 2,687 |
-| Leaking cycles PermNet | 36/94 | 36/94 |
-| Leaking cycles BIT0MASK | 199/293 | 199/293 |
-| Bit 6 ratio to BIT0MASK peak | 84.1% | ≈84% |
-| Mean reduction | 4.58× | 4.6× |
+Cortex-M0 ELMO, 256 traces per encoder (`arm-none-eabi-gcc 15.2.0`, ELMO commit `7c4e293`, `coeffs_M3.txt`):
+
+| Metric | Unmasked PermNet (post-fix) | Masked d=1 shared-output | BIT0MASK |
+|---|---:|---:|---:|
+| Trace length (cycles) | 144 | 184 | 293 |
+| Max single-bit signal | 1,757.7 | **405.6** | 4,493.4 |
+| Mean single-bit signal | 294.97 | **204.6** | 2,687.0 |
+| Leaking-cycle fraction | 55/144 (38%) | **3/184 (1.6%)** | 199/293 (68%) |
+| Bit 6 signal | 1,757.7 | **191.1** | 3,778.4 |
+| Bit 7 signal | 221.2 | — | 3,778.4 |
+| Mean reduction vs BIT0MASK | **9.1×** | **13.1×** | — |
+| `neg` instructions in encoder body | 0 | 0 | 8 |
 
 See [`elmo/RUN_2026-04-19.md`](./elmo/RUN_2026-04-19.md) for the full reproduction report.
 
@@ -50,12 +50,12 @@ See [`elmo/RUN_2026-04-19.md`](./elmo/RUN_2026-04-19.md) for the full reproducti
 
 A Boolean-masked d=1 composition is implemented in [`source/permnet_rm17_masked_d1.c`](./source/permnet_rm17_masked_d1.c) (exhaustively verified over all 65,536 share pairs) and a matching ELMO harness in [`elmo/elmo_masked_d1.c`](./elmo/elmo_masked_d1.c). The measured effect on Cortex-M0 ELMO:
 
-| Metric | Unmasked PermNet | Masked d=1 (reconstructed) | Masked d=1 (**shared output**) | BIT0MASK |
+| Metric | Unmasked PermNet (post-fix) | Masked d=1 (reconstructed) | Masked d=1 (**shared output**) | BIT0MASK |
 |---|---:|---:|---:|---:|
-| Peak single-bit signal | 3,779.6 | 3,794.5 | **405.6** | 4,493.4 |
-| Mean single-bit signal | 586.9 | 675.9 | **204.6** | 2,687.0 |
-| Leaking-cycle fraction | 38% (36/94) | 3% (7/211) | **1.6% (3/184)** | 68% (199/293) |
-| Bit 6 signal | 3,779.6 | 3,794.5 | **191.1** | 3,778.4 |
+| Peak single-bit signal | 1,757.7 | 3,794.5 | **405.6** | 4,493.4 |
+| Mean single-bit signal | 294.97 | 675.9 | **204.6** | 2,687.0 |
+| Leaking-cycle fraction | 38% (55/144) | 3% (7/211) | **1.6% (3/184)** | 68% (199/293) |
+| Bit 6 signal | 1,757.7 | 3,794.5 | **191.1** | 3,778.4 |
 
 The reconstructed-masked variant reduces the leaking surface by an order of magnitude but does **not** reduce peak amplitude: the final XOR that reconstructs the codeword from its two shares is unmasked by construction and leaks the message bit on that one cycle. The **shared-output** variant (`source/permnet_rm17_masked_d1_shared_output.c`) returns the two shares separately (`cw_share0`, `cw_share1` with `cw_share0 XOR cw_share1 = E(m)`) and performs no unmask XOR inside the encoder. ELMO measures an **11.1× peak-signal reduction** vs BIT0MASK and a **19.8× reduction on bit 6** vs unmasked PermNet-RM. Bit 6 is no longer the dominant leaker. Cost: API change — downstream HQC consumer must hold both `cw[2]` halves until it is in a region where unmasking is safe.
 

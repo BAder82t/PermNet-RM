@@ -51,6 +51,22 @@
 #define MASK_K5 0x00000000FFFFFFFFULL  /* dword/dword pairs */
 /* Stage k = 6 crosses the 64-bit halves and is realised as `high ^= low`. */
 
+/* ----------------------------------------------------------------------------
+ * BUTTERFLY_BARRIER(x)
+ *
+ * Empty inline-asm with `x` as a read-write register operand.  The asm body
+ * does nothing, but the "+r" constraint forces GCC to treat `x` as a fresh,
+ * opaque value after each barrier: the compiler cannot peer across the
+ * boundary to reason algebraically about `x`, so it cannot constant-fold the
+ * butterfly chain applied to an isolated 1-bit register down to a single
+ * negation (the `negq %rdx` / `sbfx x1, x1, 7, 1` / `negs r1, r1` idiom that
+ * Jeon 2026/071 exploits).  With barriers between each stage the compiler is
+ * forced to materialise each intermediate state with its real XOR/AND/SHIFT
+ * sequence, so no `neg` on a message-derived register is emitted at any
+ * GCC optimisation level.
+ * ---------------------------------------------------------------------------- */
+#define BUTTERFLY_BARRIER(x) __asm__ volatile ("" : "+r"(x))
+
 void reed_muller_encode_permnet(uint64_t codeword[2], const uint8_t *message)
 {
     /* ------------------------------------------------------------------------
@@ -89,6 +105,8 @@ void reed_muller_encode_permnet(uint64_t codeword[2], const uint8_t *message)
                   | (m5 << 16)
                   | (m6 << 32);
     uint64_t high = m7;
+    BUTTERFLY_BARRIER(low);
+    BUTTERFLY_BARRIER(high);
 
     /* ------------------------------------------------------------------------
      * Step 3.  In-half butterfly stages k = 0..5.
@@ -98,31 +116,42 @@ void reed_muller_encode_permnet(uint64_t codeword[2], const uint8_t *message)
      *         s[j] ^= s[j XOR 2^k]
      * implemented in one straight-line op per half.  Both halves run the
      * identical sequence of 12 operations -- nothing here depends on m at all.
+     *
+     * The BUTTERFLY_BARRIER after each stage blocks GCC from constant-folding
+     * the entire chain (applied to `high`, which starts as the single bit m7)
+     * into a single `neg`/`sbfx` that would spread m7 to all 64 bits in one
+     * cycle -- the exact idiom the Jeon single-trace attack targets.
      * ---------------------------------------------------------------------- */
 
     /* k=0 : pair adjacent bits  (Plotkin level 1, RM(1,1) step) */
     low  ^= (low  & MASK_K0) << 1;
     high ^= (high & MASK_K0) << 1;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     /* k=1 : pair 2-bit groups   (Plotkin level 2, RM(1,2) step) */
     low  ^= (low  & MASK_K1) << 2;
     high ^= (high & MASK_K1) << 2;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     /* k=2 : pair 4-bit groups   (Plotkin level 3, RM(1,3) step) */
     low  ^= (low  & MASK_K2) << 4;
     high ^= (high & MASK_K2) << 4;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     /* k=3 : pair bytes          (Plotkin level 4, RM(1,4) step) */
     low  ^= (low  & MASK_K3) << 8;
     high ^= (high & MASK_K3) << 8;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     /* k=4 : pair 16-bit words   (Plotkin level 5, RM(1,5) step) */
     low  ^= (low  & MASK_K4) << 16;
     high ^= (high & MASK_K4) << 16;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     /* k=5 : pair 32-bit dwords  (Plotkin level 6, RM(1,6) step) */
     low  ^= (low  & MASK_K5) << 32;
     high ^= (high & MASK_K5) << 32;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     /* ------------------------------------------------------------------------
      * Step 4.  The single cross-half butterfly stage k = 6, completing

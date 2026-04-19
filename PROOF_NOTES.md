@@ -100,7 +100,7 @@ Cortex-M0 ELMO:
 | | Peak | Mean | Leaking cycles | Bit 6 |
 |---|---:|---:|---:|---:|
 | BIT0MASK (baseline) | 4,493.4 | 2,687.0 | 199/293 (68%) | 3,778.4 |
-| Unmasked PermNet-RM | 3,779.6 | 586.9 | 36/94 (38%) | 3,779.6 |
+| Unmasked PermNet-RM (with barrier fix) | 1,757.7 | 294.97 | 55/144 (38%) | 1,757.7 |
 | Masked d=1, reconstructed | 3,794.5 | 675.9 | 7/211 (3%) | 3,794.5 |
 | Masked d=1, **shared output** | **405.6** | **204.6** | **3/184 (1.6%)** | **191.1** |
 

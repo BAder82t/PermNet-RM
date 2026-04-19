@@ -49,6 +49,12 @@ jobs:
               source/permnet_rm17_masked_d1_shared_output.c
           /tmp/permnet_rm17_masked_shared
 
+      - name: Compile and run basis-change variant exhaustive correctness (negative result)
+        run: |
+          gcc -${{ matrix.opt }} -Wall -Wextra -o /tmp/permnet_rm17_basis \
+              source/permnet_rm17_basis.c
+          /tmp/permnet_rm17_basis
+
       - name: Disassembly check -- RM(1,7) must be free of conditional jumps
         run: |
           # -fno-stack-protector: Ubuntu gcc defaults enable
@@ -184,7 +190,8 @@ jobs:
           for c in source/permnet_rm17.c \
                    source/permnet_rm17_masked_d1.c \
                    source/permnet_rm17_masked_d1_shared_output.c \
-                   source/permnet_rm17_stage_reordered.c ; do
+                   source/permnet_rm17_stage_reordered.c \
+                   source/permnet_rm17_basis.c ; do
             stem=$(basename "$c" .c)
             arm-none-eabi-gcc -mthumb -mcpu=cortex-m0 -msoft-float \
                 -Os -ffreestanding -nostdlib -fno-stack-protector \

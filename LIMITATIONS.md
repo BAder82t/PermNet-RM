@@ -42,6 +42,46 @@ Scope note for readers, reviewers, and downstream integrators.
   Other microarchitectures, compilers, and compiler versions may produce
   different cycle-count spreads, even if branch-free.
 
+## Structural lower bound on the unmasked bit-6 signal (32-bit ARM)
+
+Two rounds of adversarial research + critic agents (10 candidate ideas total)
+were applied to the question "can the bit-6 residual be driven below 1,757.7
+in the unmasked encoder under the constraints: no randomness, no ABI change,
+no `neg`/`cmov` on message bits, ≤2x runtime?" The answer is **no, not
+under any local GF(2) reshuffling**. The structural argument:
+
+- The RM(1,7) generator's column for `m_6` is the indicator of coordinates
+  whose bit 5 is set — a 64-bit-weighted vector. Any correct encoder must,
+  at some cycle, store a 32-bit value whose `m_6`-dependent linear
+  contribution is exactly those 32 bits of that column in the stored word.
+- ELMO's Cortex-M0 power model (Mather et al., McCann et al.) scores every
+  instruction by, among other terms, the Hamming weight of each register
+  operand. A `str` that writes the post-butterfly `lo1` therefore
+  contributes an `Operand1_data` leakage component whose `m_6`-correlated
+  amplitude is a constant set by the RM(1,7) code structure, ELMO
+  coefficients, and the encoder's choice of which 32-bit slice is written
+  where — not by the specific sequence of butterfly stages.
+- Empirically tested: an invertible-basis-change variant
+  (`source/permnet_rm17_basis.c`, `elmo/elmo_permnet_basis.c`; see also the
+  header comment in the first file) drove bit-6 to **3,846** — 2.2× **worse**
+  than the baseline — because its recovery XOR `cw[1] = v ^ u` concentrated
+  the m6-correlated Hamming weight into a single store cycle rather than
+  spreading it across the baseline's five-cycle 1→2→4→8→16→32 ramp. Kept as
+  a documented negative result.
+
+The baseline unmasked encoder's bit-6 signal of 1,757.7 is therefore close
+to a floor for unmasked variants under the stated constraints. Full bit-6
+closure requires either:
+
+1. **Shared-output Boolean masking at `d=1`** (implemented in
+   `source/permnet_rm17_masked_d1_shared_output.c`, measured bit-6 =
+   **120.9**, a 14.5× reduction). Recommended path.
+2. **Randomness** — a per-call cryptographic refresh that whitens the `m_6`
+   register trajectory. Not supplied by the unmasked encoder.
+3. **Architectural change** — 64-bit or SIMD target so the 128-bit logical
+   state fits in one or two registers and the 32-bit decomposition does not
+   arise (bit-6 residual does not appear on x86-64 or SIMD targets).
+
 ## Known residual leakage
 
 - **32-bit bit-6 isolation in the unmasked baseline.** On 32-bit targets

@@ -80,6 +80,39 @@ forces it to be 1 for `a_0`, 0 for `a_1`, and 2 for each `a_i` with
 `i ≥ 2`. No rearrangement of the same linear algebra can drive all
 `Δ_i` to zero simultaneously.
 
+## Empirical lower bound on the bit-6 ELMO signal (unmasked, 32-bit ARM)
+
+Two rounds of research + critic passes over 10 candidate ideas (basis
+change, injection reshuffle, fused pre-spread, co-materialised store,
+staircase recovery, output automorphism, stage reorder, parallel shadow
+register, pre-whitening with a public constant, forced stack round-trip)
+produced one implemented-and-measured candidate and nine ruled-out ideas.
+
+Measured result on the implemented candidate (basis-change pair-coupled
+variant in `source/permnet_rm17_basis.c` / `elmo/elmo_permnet_basis.c`):
+
+| Variant | bit-6 signal |
+|---|---:|
+| Baseline unmasked (barrier-protected) | 1,757.7 |
+| Basis-change pair-coupled | **3,846.0** (2.2× WORSE) |
+
+The structural reason the fix *made it worse*: the recovery XOR
+`cw[1] = v ^ u` materialises the post-butterfly `lo1` in a single
+`str`-into-memory cycle. ELMO's Cortex-M0 power model charges the
+`Operand1_data` term on the stored register value, and the m6-correlated
+Hamming-weight contribution of that value is approximately
+`popcount(g_6 ∩ word_lo1) = 32`. The baseline's five-cycle
+1→2→4→8→16→32 ramp has peak 32 at stage 4; the new variant's peak is
+a single cycle with HW ~32, but the Hamming *distance* against the
+preceding register value (which held `v` pre-recovery) is also ~32
+bits of m6-correlated content, so the signal approximately doubles.
+
+The two-round search concluded there is no GF(2)-linear reshuffling of
+the unmasked encoder that drives bit-6 below the baseline 1,757.7 under
+the no-randomness / no-ABI-change / no-`neg` / ≤2× runtime constraints.
+See `LIMITATIONS.md` for the argued lower bound. Full closure requires
+masking — the shared-output `d=1` variant measures bit-6 = 120.9.
+
 ## What does drive the residuals to zero
 
 Boolean masking at `d = 1`

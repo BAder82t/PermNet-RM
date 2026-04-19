@@ -65,12 +65,12 @@ Scope note for readers, reviewers, and downstream integrators.
   `(cw_share0, cw_share1)` with `cw_share0 XOR cw_share1 = E(m)` and
   does no unmask XOR inside the encoder. On Cortex-M0 ELMO it cuts
   peak signal from 4,493.4 (BIT0MASK) to 405.6 (**11.1×** reduction),
-  mean signal from 2,687.0 to 204.6 (13.1× reduction), and leaking-
-  cycle fraction from 68% to 1.6%. Bit 6 drops from 3,779.6 to 191.1
-  (**19.8×** reduction on the paper §5.5 residual). The cost is an API
-  change: downstream HQC code must consume both shares until in a
-  region where unmasking is safe. Real Cortex-M4 hardware remains
-  pending.
+  mean signal from 2,687.0 to 229.58 (11.7× reduction), and leaking-
+  cycle fraction from 68% to 1.06%. Bit 6 drops from 3,778.4 (BIT0MASK)
+  to 120.9 (**31×** reduction; **14.5×** relative to the unmasked
+  PermNet-RM at 1,757.7). The cost is an API change: downstream HQC
+  code must consume both shares until in a region where unmasking is
+  safe. Real Cortex-M4 hardware remains pending.
 
 ## Dead ends (for the record)
 

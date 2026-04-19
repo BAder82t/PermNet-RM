@@ -25,6 +25,9 @@
 #define MASK32_K3 0x00FF00FFu
 #define MASK32_K4 0x0000FFFFu
 
+/* Per-stage compiler barrier. See elmo/elmo_permnet.c for the rationale. */
+#define BUTTERFLY_BARRIER(x) __asm__ volatile ("" : "+r"(x))
+
 static void __attribute__((noinline))
 rm_encode_permnet(uint32_t cw[4], uint8_t m)
 {
@@ -43,20 +46,33 @@ rm_encode_permnet(uint32_t cw[4], uint8_t m)
     uint32_t hi0 = m7;
     uint32_t hi1 = 0;
 
+    BUTTERFLY_BARRIER(lo0); BUTTERFLY_BARRIER(lo1);
+    BUTTERFLY_BARRIER(hi0); BUTTERFLY_BARRIER(hi1);
+
     lo0 ^= (lo0 & MASK32_K0) << 1;   lo1 ^= (lo1 & MASK32_K0) << 1;
     hi0 ^= (hi0 & MASK32_K0) << 1;   hi1 ^= (hi1 & MASK32_K0) << 1;
+    BUTTERFLY_BARRIER(lo0); BUTTERFLY_BARRIER(lo1);
+    BUTTERFLY_BARRIER(hi0); BUTTERFLY_BARRIER(hi1);
 
     lo0 ^= (lo0 & MASK32_K1) << 2;   lo1 ^= (lo1 & MASK32_K1) << 2;
     hi0 ^= (hi0 & MASK32_K1) << 2;   hi1 ^= (hi1 & MASK32_K1) << 2;
+    BUTTERFLY_BARRIER(lo0); BUTTERFLY_BARRIER(lo1);
+    BUTTERFLY_BARRIER(hi0); BUTTERFLY_BARRIER(hi1);
 
     lo0 ^= (lo0 & MASK32_K2) << 4;   lo1 ^= (lo1 & MASK32_K2) << 4;
     hi0 ^= (hi0 & MASK32_K2) << 4;   hi1 ^= (hi1 & MASK32_K2) << 4;
+    BUTTERFLY_BARRIER(lo0); BUTTERFLY_BARRIER(lo1);
+    BUTTERFLY_BARRIER(hi0); BUTTERFLY_BARRIER(hi1);
 
     lo0 ^= (lo0 & MASK32_K3) << 8;   lo1 ^= (lo1 & MASK32_K3) << 8;
     hi0 ^= (hi0 & MASK32_K3) << 8;   hi1 ^= (hi1 & MASK32_K3) << 8;
+    BUTTERFLY_BARRIER(lo0); BUTTERFLY_BARRIER(lo1);
+    BUTTERFLY_BARRIER(hi0); BUTTERFLY_BARRIER(hi1);
 
     lo0 ^= (lo0 & MASK32_K4) << 16;  lo1 ^= (lo1 & MASK32_K4) << 16;
     hi0 ^= (hi0 & MASK32_K4) << 16;  hi1 ^= (hi1 & MASK32_K4) << 16;
+    BUTTERFLY_BARRIER(lo0); BUTTERFLY_BARRIER(lo1);
+    BUTTERFLY_BARRIER(hi0); BUTTERFLY_BARRIER(hi1);
 
     lo1 ^= lo0;
     hi1 ^= hi0;

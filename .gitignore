@@ -47,3 +47,7 @@ elmo/table5.txt
 # Local agent / tooling state
 .claude/
 
+# Paper drafts kept outside of git
+real text.md
+
+

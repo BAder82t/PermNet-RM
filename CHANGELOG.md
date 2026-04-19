@@ -73,6 +73,42 @@ All notable changes to PermNet-RM are documented here.
 - ELMO rerun — deferred until a variant that actually changes the bit-6
   trajectory exists.
 
+## [Unreleased] — Barriers in ELMO masked harnesses; CI hardened for Thumb
+
+### Changed
+- `elmo/elmo_masked_d1.c` and `elmo/elmo_masked_d1_shared_output.c`:
+  port the `BUTTERFLY_BARRIER` macro from `source/permnet_rm17.c` /
+  `elmo/elmo_permnet.c` into their inlined baseline encoder. Previously
+  the two masked harnesses inlined a NON-barrier-protected copy of the
+  baseline, so their compiled Thumb binaries still contained
+  `negs r1, r1` / `negs r4, r4` on the share bit. All four Cortex-M0
+  binaries now show zero `negs` in the encoder body.
+- `elmo/permnet.bin`, `elmo/masked_d1.bin`, `elmo/masked_d1_shared.bin`
+  and their `.elf` / `.list` counterparts rebuilt.
+
+### Empirical delta (shared-output d=1, post barrier in its baseline)
+- Peak per-bit signal: 405.6 (unchanged).
+- Mean per-bit signal: 204.6 → 229.58 (slightly up because the masked
+  baseline now runs the six-stage butterfly rather than folding to
+  `negs` on the share).
+- Bit 6 signal: 191.1 → 120.9 (further 1.6× reduction).
+- Leaking cycles: 3/184 (1.6%) → 3/284 (1.06%).
+- Trace length: 184 → 284 cycles (unfolded butterfly on each share).
+
+Shared-output vs BIT0MASK ratios: 11.1× peak (unchanged), 11.7× mean
+(was 13.1×), 31× on bit 6 (was 19.8×).
+
+### Added
+- CI now installs `gcc-arm-none-eabi` and runs a Cortex-M0 Thumb
+  compile + disassembly grep for `negs` in the body of every encoder
+  source (`permnet_rm17.c`, `permnet_rm17_masked_d1.c`,
+  `permnet_rm17_masked_d1_shared_output.c`, `permnet_rm17_stage_reordered.c`).
+  This catches regressions that the host x86-64 GCC does NOT reproduce
+  (and therefore would NOT catch with the pre-existing host-only grep).
+
+### Gitignore
+- `real text.md` — local paper draft, never intended to be committed.
+
 ## [Unreleased] — Shared-output masked d=1 (closes the unmask-cycle leak)
 
 ### Added

@@ -20,7 +20,7 @@ The equivalence between RM(1,m) codewords and the GF(2) zeta (Möbius) transform
 - **Binary-level branch-free on x86-64** across six GCC optimisation levels (`-O0` through `-Ofast`) — verified by disassembly grep for conditional-jump mnemonics; enforced in CI.
 - **Zero cycle-count timing spread on x86-64 at `-O3`** across all 256 RM(1,7) inputs under our TSC measurement.
 - **Exhaustive correctness** over the complete input space (256 inputs for RM(1,7), 512 for RM(1,8), and 65,536 `(share0, share1)` pairs for the masked d=1 composition).
-- **Substantial Hamming-weight leakage reduction on 32-bit ARM** in ELMO simulation. The unmasked encoder with compiler barriers halves the bit-6 peak vs the BIT0MASK baseline and cuts the mean per-bit signal by 9.1×; the shared-output masked d=1 variant drives the peak down 11.1× and the bit-6 signal 19.8×. See [LIMITATIONS.md](./LIMITATIONS.md) and the table below.
+- **Substantial Hamming-weight leakage reduction on 32-bit ARM** in ELMO simulation. The unmasked encoder with compiler barriers halves the bit-6 peak vs the BIT0MASK baseline and cuts the mean per-bit signal by 9.1×; the shared-output masked d=1 variant drives the peak down 11.1× and the bit-6 signal 31× relative to BIT0MASK (14.5× relative to unmasked PermNet). See [LIMITATIONS.md](./LIMITATIONS.md) and the table below.
 - **Not yet measured:** real Cortex-M4 hardware (ChipWhisperer + STM32F303/F415), which is the Jeon attack's actual target platform. ELMO models Cortex-M0 only; no maintained public Cortex-M4 leakage simulator exists (see [elmo/README.md](./elmo/README.md)).
 
 See [LIMITATIONS.md](./LIMITATIONS.md) for the full list.
@@ -35,14 +35,14 @@ Cortex-M0 ELMO, 256 traces per encoder (`arm-none-eabi-gcc 15.2.0`, ELMO commit 
 
 | Metric | Unmasked PermNet (post-fix) | Masked d=1 shared-output | BIT0MASK |
 |---|---:|---:|---:|
-| Trace length (cycles) | 144 | 184 | 293 |
+| Trace length (cycles) | 144 | 284 | 293 |
 | Max single-bit signal | 1,757.7 | **405.6** | 4,493.4 |
-| Mean single-bit signal | 294.97 | **204.6** | 2,687.0 |
-| Leaking-cycle fraction | 55/144 (38%) | **3/184 (1.6%)** | 199/293 (68%) |
-| Bit 6 signal | 1,757.7 | **191.1** | 3,778.4 |
-| Bit 7 signal | 221.2 | — | 3,778.4 |
-| Mean reduction vs BIT0MASK | **9.1×** | **13.1×** | — |
-| `neg` instructions in encoder body | 0 | 0 | 8 |
+| Mean single-bit signal | 294.97 | **229.58** | 2,687.0 |
+| Leaking-cycle fraction | 55/144 (38%) | **3/284 (1.06%)** | 199/293 (68%) |
+| Bit 6 signal | 1,757.7 | **120.9** | 3,778.4 |
+| Bit 7 signal | 221.2 | 99.5 | 3,778.4 |
+| Mean reduction vs BIT0MASK | **9.1×** | **11.7×** | — |
+| Mask-idiom instructions in encoder body | 0 | 0 | 5 (`ands`+`muls`) |
 
 See [`elmo/RUN_2026-04-19.md`](./elmo/RUN_2026-04-19.md) for the full reproduction report.
 
@@ -53,11 +53,11 @@ A Boolean-masked d=1 composition is implemented in [`source/permnet_rm17_masked_
 | Metric | Unmasked PermNet (post-fix) | Masked d=1 (reconstructed) | Masked d=1 (**shared output**) | BIT0MASK |
 |---|---:|---:|---:|---:|
 | Peak single-bit signal | 1,757.7 | 3,794.5 | **405.6** | 4,493.4 |
-| Mean single-bit signal | 294.97 | 675.9 | **204.6** | 2,687.0 |
-| Leaking-cycle fraction | 38% (55/144) | 3% (7/211) | **1.6% (3/184)** | 68% (199/293) |
-| Bit 6 signal | 1,757.7 | 3,794.5 | **191.1** | 3,778.4 |
+| Mean single-bit signal | 294.97 | 692.47 | **229.58** | 2,687.0 |
+| Leaking-cycle fraction | 38% (55/144) | 2% (7/311) | **1.06% (3/284)** | 68% (199/293) |
+| Bit 6 signal | 1,757.7 | 3,794.5 | **120.9** | 3,778.4 |
 
-The reconstructed-masked variant reduces the leaking surface by an order of magnitude but does **not** reduce peak amplitude: the final XOR that reconstructs the codeword from its two shares is unmasked by construction and leaks the message bit on that one cycle. The **shared-output** variant (`source/permnet_rm17_masked_d1_shared_output.c`) returns the two shares separately (`cw_share0`, `cw_share1` with `cw_share0 XOR cw_share1 = E(m)`) and performs no unmask XOR inside the encoder. ELMO measures an **11.1× peak-signal reduction** vs BIT0MASK and a **19.8× reduction on bit 6** vs unmasked PermNet-RM. Bit 6 is no longer the dominant leaker. Cost: API change — downstream HQC consumer must hold both `cw[2]` halves until it is in a region where unmasking is safe.
+The reconstructed-masked variant reduces the leaking surface by an order of magnitude but does **not** reduce peak amplitude: the final XOR that reconstructs the codeword from its two shares is unmasked by construction and leaks the message bit on that one cycle. The **shared-output** variant (`source/permnet_rm17_masked_d1_shared_output.c`) returns the two shares separately (`cw_share0`, `cw_share1` with `cw_share0 XOR cw_share1 = E(m)`) and performs no unmask XOR inside the encoder. ELMO measures an **11.1× peak-signal reduction** vs BIT0MASK and a **14.5× reduction on bit 6** vs unmasked PermNet-RM (**31× vs BIT0MASK**). Bit 6 is no longer the dominant leaker. Cost: API change — downstream HQC consumer must hold both `cw[2]` halves until it is in a region where unmasking is safe.
 
 ### Shared-output masked variant recommended for full probing-model security
 
@@ -74,7 +74,7 @@ An exploratory [`source/permnet_rm17_stage_reordered.c`](./source/permnet_rm17_s
 | `source/permnet_rm17.c` | RM(1,7) encoder for HQC-128 + exhaustive correctness test |
 | `source/permnet_rm17_bench.c` | x86-64 benchmark — PermNet, BIT0MASK, branchy, masked-d1 |
 | `source/permnet_rm17_masked_d1.c` | Boolean-masked d=1 composition (reconstructed output) + 65,536-pair exhaustive test |
-| `source/permnet_rm17_masked_d1_shared_output.c` | Boolean-masked d=1 composition with **shared output** (`(cw_share0, cw_share1)`); 11.1× peak ELMO reduction vs BIT0MASK |
+| `source/permnet_rm17_masked_d1_shared_output.c` | Boolean-masked d=1 composition with **shared output** (`(cw_share0, cw_share1)`); 11.1× peak / 31× bit-6 ELMO reduction vs BIT0MASK |
 | `source/permnet_rm17_stage_reordered.c` | Exploratory stage-reordered variant (documented negative result) |
 | `source/permnet_rm18.c` | RM(1,8) encoder for HQC-192/HQC-256 + exhaustive correctness test |
 | `source/verify_theorem_4_2.py` | Brute-force enumeration of the stage-1 per-bit residual |

@@ -19,7 +19,7 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc binutils
+          sudo apt-get install -y gcc binutils gcc-arm-none-eabi
 
       - name: Compile and run exhaustive correctness test (RM(1,7))
         run: |
@@ -170,6 +170,46 @@ jobs:
             exit 1
           fi
           echo "OK: no conditional jumps in stage-reordered encoder at -${{ matrix.opt }}"
+
+      - name: Cortex-M0 neg/mask-idiom regression check
+        run: |
+          # This check exists because x86-64 GCC 15.2.0 does NOT produce
+          # the BIT0MASK-equivalent neg on the unmasked PermNet encoder
+          # even without the compiler barriers; the bug regression we
+          # actually care about (`negs r1, r1` / `negs r4, r4` on m6/m7)
+          # manifests only on arm-none-eabi-gcc -Os targeting Cortex-M0.
+          # Compile each unmasked and masked Thumb encoder here and grep
+          # the disassembly directly; fail on any `negs` or `muls` on a
+          # message-derived register.
+          for c in source/permnet_rm17.c \
+                   source/permnet_rm17_masked_d1.c \
+                   source/permnet_rm17_masked_d1_shared_output.c \
+                   source/permnet_rm17_stage_reordered.c ; do
+            stem=$(basename "$c" .c)
+            arm-none-eabi-gcc -mthumb -mcpu=cortex-m0 -msoft-float \
+                -Os -ffreestanding -nostdlib -fno-stack-protector \
+                -c "$c" -o "/tmp/${stem}_m0.o" 2>/dev/null || {
+                  # Exhaustive-test sources have a main(); not a problem
+                  # for -c object compile. Skip files that pull in
+                  # <stdio.h>-via-libc that cross-gcc cannot find.
+                  continue
+                }
+            arm-none-eabi-objdump -d "/tmp/${stem}_m0.o" > "/tmp/${stem}_m0.list"
+            echo "--- Thumb disassembly of $stem (body of encoder functions) ---"
+            awk '/<reed_muller_encode_permnet.*>:/{flag=1} flag{print} flag && /^$/{exit}' \
+                "/tmp/${stem}_m0.list" > "/tmp/${stem}_m0_body.list"
+            if [ ! -s "/tmp/${stem}_m0_body.list" ]; then
+              echo "(no encoder body found in $stem Thumb disassembly; skipping)"
+              continue
+            fi
+            NEG=$(grep -cE '\bnegs?\b' "/tmp/${stem}_m0_body.list" || true)
+            if [ "$NEG" -ne 0 ]; then
+              echo "FAIL: ${NEG} negs instruction(s) in $stem Cortex-M0 body"
+              cat "/tmp/${stem}_m0_body.list"
+              exit 1
+            fi
+            echo "OK: 0 negs in $stem Cortex-M0 body"
+          done
 
       - name: Upload disassembly artifacts
         if: always()

@@ -101,8 +101,8 @@ Cortex-M0 ELMO:
 |---|---:|---:|---:|---:|
 | BIT0MASK (baseline) | 4,493.4 | 2,687.0 | 199/293 (68%) | 3,778.4 |
 | Unmasked PermNet-RM (with barrier fix) | 1,757.7 | 294.97 | 55/144 (38%) | 1,757.7 |
-| Masked d=1, reconstructed | 3,794.5 | 675.9 | 7/211 (3%) | 3,794.5 |
-| Masked d=1, **shared output** | **405.6** | **204.6** | **3/184 (1.6%)** | **191.1** |
+| Masked d=1, reconstructed | 3,794.5 | 692.47 | 7/311 (2%) | 3,794.5 |
+| Masked d=1, **shared output** | **405.6** | **229.58** | **3/284 (1.06%)** | **120.9** |
 
 Shared-output vs BIT0MASK: **11.1× peak reduction, 13.1× mean
 reduction, 68% → 1.6% leaking cycles**. Shared-output vs unmasked

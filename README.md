@@ -4,7 +4,9 @@ A branch-free, fixed-topology Reed-Muller encoder for HQC, built from a GF(2) ze
 
 ## What this is
 
-PermNet-RM is a drop-in replacement for `reed_muller_encode()` in the HQC reference implementation. It eliminates the `BIT0MASK` idiom (`mask = -((uint64_t)((m >> i) & 1))`) that the Jeon et al. single-trace attack exploits:
+PermNet-RM is a drop-in replacement for `reed_muller_encode()` in the HQC reference implementation. At the C source level, the `BIT0MASK` idiom (`mask = -((uint64_t)((m >> i) & 1))`) that the Jeon et al. single-trace attack exploits is fully removed from the encoder body. In the unmasked binary, GCC's optimiser folds the butterfly-to-all-bits propagation of the high half into a single `neg` instruction on m7 (x86-64) and of the isolated 32-bit halves into `neg` on m6 and m7 (Cortex-M0); this is a per-bit residual that the **shared-output masked d=1 variant** ([`source/permnet_rm17_masked_d1_shared_output.c`](./source/permnet_rm17_masked_d1_shared_output.c)) closes by randomising the mask operand. ELMO measures the shared-output variant at 11.1× peak-signal reduction over BIT0MASK and 19.8× bit-6 reduction over the unmasked encoder.
+
+The relevant attacks:
 
 - **Jeon et al. (ePrint 2026/071)** recover the full 128-bit encapsulation message from a single decapsulation trace with up to 96.9% success, using a total of 5,000 power traces for profiling and evaluation on an STM32F303 (ARM Cortex-M4). The target of the attack is the RM encoder's `BIT0MASK` idiom, reached during the FO re-encryption step.
 - **Lai et al. (ePrint 2025/2162, YODO)** demonstrate ciphertext-independent, passive single-trace attacks on HQC that exploit timing leakages in sparse-vector processing (`gf_carryless_mul`, `find_peaks`, Karatsuba base cases, key re-sampling). YODO does *not* attack the RM encoder directly, but it motivates constant-time work across the HQC code base. The RM encoder is a separate, complementary leakage source.

@@ -77,6 +77,12 @@ jobs:
             exit 1
           fi
           echo "OK: no conditional jumps in RM(1,7) encoder at -${{ matrix.opt }}"
+          # Informational: count BIT0MASK-equivalent neg instructions.
+          # These are expected on the unmasked encoder for m7 (x86-64 `lo`
+          # half is mixed, so only `high` reduces to `-m7`). Do not fail
+          # the build on `neg`; LIMITATIONS.md documents the residual.
+          NEG_COUNT=$(grep -cE '\bneg[qlwb]?\b' /tmp/rm17_${{ matrix.opt }}.asm || true)
+          echo "INFO: ${NEG_COUNT} neg instruction(s) in RM(1,7) encoder at -${{ matrix.opt }}"
 
       - name: Disassembly check -- RM(1,8) must be free of conditional jumps
         run: |
@@ -137,6 +143,8 @@ jobs:
             exit 1
           fi
           echo "OK: no conditional jumps in shared-output masked d=1 encoder at -${{ matrix.opt }}"
+          NEG_COUNT=$(grep -cE '\bneg[qlwb]?\b' /tmp/masked_shared_${{ matrix.opt }}.asm || true)
+          echo "INFO: ${NEG_COUNT} neg instruction(s) in shared-output masked d=1 encoder at -${{ matrix.opt }} (should be 0 on well-mixed shares)"
 
       - name: Disassembly check -- stage-reordered variant must be free of conditional jumps
         run: |

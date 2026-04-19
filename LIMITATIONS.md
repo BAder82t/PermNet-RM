@@ -32,13 +32,12 @@ Scope note for readers, reviewers, and downstream integrators.
   targets an STM32F303 (Cortex-M4), with a noisier STM32F415 secondary
   target. No ChipWhisperer or equivalent measurements on M4 silicon have
   been run. This is the single most important next step.
-- **Power-side-channel evaluation of the masked d=1 composition.** The
-  code exists (`source/permnet_rm17_masked_d1.c`) and is exhaustively
-  correct, and the security argument under the abstract d=1 probing model
-  is standard. An ELMO rerun on the masked encoder, and ideally a
-  ChipWhisperer measurement on Cortex-M4, are still outstanding. Until
-  that data exists, "resistance to power analysis" for the masked variant
-  is a model-level claim, not an empirical one.
+- **Power-side-channel evaluation of the masked d=1 composition.** An
+  ELMO harness (`elmo/elmo_masked_d1.c`) has been added and is wired into
+  `elmo/run_table5.sh`, but the per-message fresh-share approach is a
+  light-weight evaluation, not a full TVLA sweep with many trials per
+  message. The Cortex-M4 hardware measurement that would matter most for
+  the Jeon attack is still outstanding.
 - **Performance on platforms other than x86-64 Intel Core Ultra 9 275HX.**
   Other microarchitectures, compilers, and compiler versions may produce
   different cycle-count spreads, even if branch-free.

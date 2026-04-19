@@ -105,8 +105,9 @@ make run
 # ---------------------------------------------------------------------------
 PERMNET_TRACES="output_permnet/output/traces"
 BITMASK_TRACES="output_bitmask/output/traces"
+MASKED_TRACES="output_masked/output/traces"
 
-for d in "${PERMNET_TRACES}" "${BITMASK_TRACES}"; do
+for d in "${PERMNET_TRACES}" "${BITMASK_TRACES}" "${MASKED_TRACES}"; do
     if [[ ! -d "$d" ]]; then
         echo "ERROR: expected trace directory $d not produced by ELMO run." >&2
         exit 3
@@ -114,10 +115,47 @@ for d in "${PERMNET_TRACES}" "${BITMASK_TRACES}"; do
 done
 
 echo
-echo "=== Running analyze_traces.py ==="
+echo "=== Running analyze_traces.py -- PermNet-RM vs BIT0MASK ==="
 mkdir -p "${PLOTS_DIR}"
-python3 analyze_traces.py "${PERMNET_TRACES}" "${BITMASK_TRACES}" "${PLOTS_DIR}" \
-    | tee "${TABLE5}"
+: > "${TABLE5}"
+{
+    echo "######################################################################"
+    echo "#  Comparison 1: unmasked PermNet-RM  vs  BIT0MASK baseline"
+    echo "#  (this is the paper's Table 5)"
+    echo "######################################################################"
+    python3 analyze_traces.py "${PERMNET_TRACES}" "${BITMASK_TRACES}" \
+            "${PLOTS_DIR}/permnet_vs_bitmask" \
+            "PermNet-RM (unmasked)" "BIT0MASK (vulnerable baseline)" \
+        || echo "[analysis returned non-zero; see log above]"
+} | tee -a "${TABLE5}"
+
+echo
+echo "=== Running analyze_traces.py -- masked d=1 vs BIT0MASK ==="
+{
+    echo
+    echo "######################################################################"
+    echo "#  Comparison 2: masked d=1 PermNet-RM  vs  BIT0MASK baseline"
+    echo "#  (shows attack-relevant signal reduction under a fresh share)"
+    echo "######################################################################"
+    python3 analyze_traces.py "${MASKED_TRACES}" "${BITMASK_TRACES}" \
+            "${PLOTS_DIR}/masked_vs_bitmask" \
+            "PermNet-RM masked d=1" "BIT0MASK (vulnerable baseline)" \
+        || echo "[analysis returned non-zero; see log above]"
+} | tee -a "${TABLE5}"
+
+echo
+echo "=== Running analyze_traces.py -- masked d=1 vs unmasked PermNet-RM ==="
+{
+    echo
+    echo "######################################################################"
+    echo "#  Comparison 3: masked d=1 PermNet-RM  vs  unmasked PermNet-RM"
+    echo "#  (does masking further reduce residual leakage on Cortex-M0?)"
+    echo "######################################################################"
+    python3 analyze_traces.py "${MASKED_TRACES}" "${PERMNET_TRACES}" \
+            "${PLOTS_DIR}/masked_vs_permnet" \
+            "PermNet-RM masked d=1" "PermNet-RM (unmasked)" \
+        || echo "[analysis returned non-zero; see log above]"
+} | tee -a "${TABLE5}"
 
 # ---------------------------------------------------------------------------
 # 5. Summary.

@@ -303,20 +303,23 @@ def try_plot(permnet_stats, bitmask_stats, permnet_traces, bitmask_traces, outpu
 
 def main():
     if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <permnet_traces> <bitmask_traces> [output_dir]")
+        print(f"Usage: {sys.argv[0]} <a_traces> <b_traces> "
+              f"[output_dir] [label_a] [label_b]")
         sys.exit(1)
 
     permnet_dir = sys.argv[1]
     bitmask_dir = sys.argv[2]
     output_dir = sys.argv[3] if len(sys.argv) > 3 else 'plots'
+    label_a = sys.argv[4] if len(sys.argv) > 4 else "PermNet-RM (butterfly encoder)"
+    label_b = sys.argv[5] if len(sys.argv) > 5 else "BIT0MASK (vulnerable encoder)"
 
-    print("Loading PermNet-RM traces...")
+    print(f"Loading {label_a} traces...")
     permnet_traces = load_traces(permnet_dir)
-    print("Loading BIT0MASK traces...")
+    print(f"Loading {label_b} traces...")
     bitmask_traces = load_traces(bitmask_dir)
 
-    permnet_stats = analyze(permnet_traces, "PermNet-RM (butterfly encoder)")
-    bitmask_stats = analyze(bitmask_traces, "BIT0MASK (vulnerable encoder)")
+    permnet_stats = analyze(permnet_traces, label_a)
+    bitmask_stats = analyze(bitmask_traces, label_b)
 
     # Summary
     pn = permnet_stats['pba']

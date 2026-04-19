@@ -73,6 +73,48 @@ All notable changes to PermNet-RM are documented here.
 - ELMO rerun — deferred until a variant that actually changes the bit-6
   trajectory exists.
 
+## [Unreleased] — Masked d=1 ELMO harness + M4 simulator research
+
+### Added
+- `elmo/elmo_masked_d1.c` — Thumb harness for the Boolean-masked d=1
+  composition on ARM Cortex-M0. For each of 256 messages, draws a single
+  pseudo-random share from a fixed-seed linear congruential PRNG,
+  encodes both shares through the baseline PermNet-RM(1,7) encoder, and
+  XORs the codewords under one ELMO trigger pair.
+- `elmo/Makefile` extended with `elmo_masked_d1.o`, `masked_d1.elf`,
+  `masked_d1.bin`, and a `run-masked` target; `make run` now runs ELMO
+  on all three encoders.
+- `elmo/run_table5.sh` extended to produce three comparison blocks in
+  `table5.txt`:
+  (1) PermNet-RM vs BIT0MASK (the paper's Table 5);
+  (2) masked d=1 vs BIT0MASK (expected amplitude reduction under a
+      fresh share);
+  (3) masked d=1 vs unmasked PermNet-RM (residual Cortex-M0 leakage).
+  Each comparison saves plots into its own subdirectory under
+  `elmo/plots/`.
+
+### Changed
+- `elmo/analyze_traces.py` now accepts two optional label arguments so
+  the non-default pairs are printed with the correct encoder names.
+- `elmo/README.md` updated to cover the masked harness and to document
+  why there is no Cortex-M4 leakage simulator available (ELMO / GILES /
+  Rosita are all M0; Rosita paper explicitly notes ELMO* is not
+  suitable for M4; no maintained calibrated M4 simulator as of this
+  writing).
+
+### Notes
+- The masked-d=1 ELMO measurement with one fresh share per message is a
+  light-weight evaluation, not a TVLA-grade fixed-vs-random sweep with
+  many trials per message. Adding that is straightforward but is not
+  wired up here; the current harness is sufficient to show whether
+  masking breaks per-cycle correlation with `m` in the ELMO HW model.
+- The LCG inside the harness is non-cryptographic; its only job is to
+  make per-trace shares independent of the message for the simulation.
+  Production code must use a cryptographic RNG (see
+  `source/permnet_rm17_masked_d1.c`).
+- No Cortex-M4 measurements have been performed; that is still
+  Part 4.3 and depends on physical hardware.
+
 ## [Unreleased] — Phase 4.2 ELMO reproducibility pack
 
 ### Added

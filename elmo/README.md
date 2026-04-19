@@ -14,16 +14,22 @@ cd elmo/
 
 `run_table5.sh` is idempotent. It:
 
-1. Writes [`versions.txt`](versions.txt) with the exact versions of every tool it invokes
-   (OS, `arm-none-eabi-gcc`, `make`, the ELMO binary, and the git commit of
-   the `elmo_tool/` submodule).
-2. Rebuilds `permnet.bin` and `bitmask.bin` from source (`make clean && make`).
-3. Runs ELMO on both binaries (`make run`). This creates
-   `output_permnet/output/traces/` and `output_bitmask/output/traces/`, each
-   holding 256 per-input trace files (one per 8-bit message).
-4. Runs [`analyze_traces.py`](analyze_traces.py) on both trace directories.
-5. Writes the summary statistics to [`table5.txt`](table5.txt) and the
-   comparison plots to [`plots/`](plots/).
+1. Writes [`versions.txt`](versions.txt) with the exact versions of every tool
+   it invokes (OS, `arm-none-eabi-gcc`, `make`, the ELMO binary, and the git
+   commit of the `../elmo_tool/` checkout).
+2. Rebuilds `permnet.bin`, `bitmask.bin`, and `masked_d1.bin` from source
+   (`make clean && make`).
+3. Runs ELMO on all three binaries (`make run`). This creates
+   `output_permnet/output/traces/`, `output_bitmask/output/traces/`, and
+   `output_masked/output/traces/`, each holding 256 per-input trace files.
+4. Runs [`analyze_traces.py`](analyze_traces.py) three times: PermNet-RM vs
+   BIT0MASK (the paper's Table 5), masked-d1 vs BIT0MASK (how much the
+   abstract-d=1 mask reduces the attack-relevant amplitude), and masked-d1
+   vs unmasked PermNet-RM (does the mask further reduce residual leakage on
+   Cortex-M0).
+5. Writes the three summary blocks into [`table5.txt`](table5.txt) and
+   separate plots subdirectories (`plots/permnet_vs_bitmask/`,
+   `plots/masked_vs_bitmask/`, `plots/masked_vs_permnet/`).
 
 If any step fails, the script stops and prints the failing command. There are
 no hidden defaults — every flag that goes into the build or the analysis is
@@ -98,6 +104,7 @@ tar czf traces_$(date +%Y%m%d).tar.gz output_permnet output_bitmask
 | `Makefile` | builds `permnet.bin` / `bitmask.bin`, runs ELMO on each, generates `.list` disassembly. |
 | `elmo_permnet.c` | PermNet-RM ELMO harness: encodes all 256 inputs with start/end trigger wrapping so ELMO captures 256 per-input traces. |
 | `elmo_bitmask.c` | Same harness for the BIT0MASK baseline (the classical `-((m>>i)&1)` idiom). |
+| `elmo_masked_d1.c` | Harness for the Boolean-masked d=1 composition: per message, draws one pseudo-random share from a fixed-seed LCG, encodes both shares, XORs the codewords, triggers once per message. |
 | `elmo.ld` | linker script: places `.text` at the reset vector ELMO expects. |
 | `vector.s` | minimal Cortex-M0 vector table + reset handler for the emulator. |
 | `elmoasmfunctions.s` / `.h` | ELMO's own `starttrigger()`, `endtrigger()`, `endprogram()` primitives. |
@@ -128,9 +135,35 @@ for PermNet-RM close to the BIT0MASK peak. This is not a regression; it
 is the 32-bit decomposition effect documented in paper §5.5 and in
 [LIMITATIONS.md](../LIMITATIONS.md).
 
-## Scope
+## Honest notes on the masked-d=1 harness
 
-Cortex-M0 is simulated in ELMO. The Jeon et al. attack targets an
-STM32F303 (Cortex-M4). ELMO does not model M4. Reproducing the paper's
-ELMO table says nothing direct about the attack on a physical M4 device;
-that is the purpose of Part 4.3 (real hardware), which is not yet done.
+- Each of the 256 ELMO traces uses exactly one pseudo-random share, drawn
+  from a fixed-seed linear congruential PRNG inside the trigger window.
+  The seed is compile-time so the whole run is bit-deterministic. This is
+  sufficient to break the statistical coupling between `m` and per-cycle
+  power in ELMO's Hamming-weight model, but it is NOT a TVLA-grade
+  evaluation. A proper TVLA sweep would run many trials per message with
+  fresh shares and compare fixed-vs-random cohorts. Adding that is
+  straightforward but is not wired up in this pack.
+- The LCG is there only to break per-message correlation. It is NOT
+  cryptographically secure. Production code must draw each share from a
+  cryptographic RNG per call — see `source/permnet_rm17_masked_d1.c`.
+
+## Scope: why there is no Cortex-M4 simulator here
+
+- **ELMO** targets Cortex-M0 only. The power model was calibrated on an M0
+  core and the emulator is a custom Thumbulator extension of that family.
+- **GILES** (`sca-research/GILES`) integrates the ELMO power model into a
+  leakage-assessment tool but still targets M0. Latest release is June
+  2019; not actively maintained.
+- **Rosita / Rosita++** build on top of ELMO/ELMO*. The ROSITA paper
+  explicitly notes the ELMO* model "may not be suitable for more advanced
+  processors like the Cortex-M4."
+- There is no maintained, publicly available leakage simulator of
+  comparable calibration for Cortex-M4 as of this writing.
+
+The Jeon et al. attack targets an STM32F303 (Cortex-M4). Reproducing the
+ELMO table in this pack says nothing direct about the attack on a
+physical M4 device. The only credible route to an M4 claim is real
+hardware measurement (ChipWhisperer + STM32F303 or STM32F415), which is
+Part 4.3 of the project roadmap and is not yet done.

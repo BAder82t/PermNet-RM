@@ -24,7 +24,7 @@ ELMO_DATA   = ../elmo_tool/Examples/randdata100000.txt
 VECTOR_OBJ  = vector.o
 ASMFUNC_OBJ = elmoasmfunctions.o
 
-TARGETS = permnet bitmask
+TARGETS = permnet bitmask masked_d1
 
 # ============================================================================
 all: $(addsuffix .bin,$(TARGETS))
@@ -50,6 +50,13 @@ elmo_bitmask.o: elmo_bitmask.c elmoasmfunctionsdef.h
 bitmask.elf: elmo_bitmask.o $(VECTOR_OBJ) $(ASMFUNC_OBJ) elmo.ld
 	$(CC) $(LDFLAGS) $(ARCH_FLAGS) $(VECTOR_OBJ) elmo_bitmask.o $(ASMFUNC_OBJ) $(LDLIBS) -o $@
 
+# --- Masked PermNet-RM, d = 1 -----------------------------------------------
+elmo_masked_d1.o: elmo_masked_d1.c elmoasmfunctionsdef.h
+	$(CC) $(CFLAGS) $(ARCH_FLAGS) -c -o $@ $<
+
+masked_d1.elf: elmo_masked_d1.o $(VECTOR_OBJ) $(ASMFUNC_OBJ) elmo.ld
+	$(CC) $(LDFLAGS) $(ARCH_FLAGS) $(VECTOR_OBJ) elmo_masked_d1.o $(ASMFUNC_OBJ) $(LDLIBS) -o $@
+
 # --- Generic rules ----------------------------------------------------------
 %.bin: %.elf
 	$(OBJCOPY) -Obinary $< $@
@@ -58,9 +65,9 @@ bitmask.elf: elmo_bitmask.o $(VECTOR_OBJ) $(ASMFUNC_OBJ) elmo.ld
 	$(OBJDUMP) -S $< > $@
 
 # --- ELMO simulation --------------------------------------------------------
-.PHONY: run run-permnet run-bitmask disasm clean
+.PHONY: run run-permnet run-bitmask run-masked disasm clean
 
-run: run-permnet run-bitmask
+run: run-permnet run-bitmask run-masked
 
 run-permnet: permnet.bin
 	@echo "=== Running ELMO on PermNet-RM encoder ==="
@@ -80,9 +87,18 @@ run-bitmask: bitmask.bin
 	    $(ELMO) ../bitmask.bin --Ntrace 256 2>&1 | tee elmo_log.txt
 	@echo "=== BIT0MASK traces in output_bitmask/ ==="
 
-disasm: permnet.list bitmask.list
+run-masked: masked_d1.bin
+	@echo "=== Running ELMO on Boolean-masked (d=1) PermNet-RM encoder ==="
+	@mkdir -p output_masked/traces
+	cd output_masked && cp $(ELMO_COEFFS) coeffs.txt && \
+	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput && \
+	    ln -sf $(ELMO_DATA) . && \
+	    $(ELMO) ../masked_d1.bin --Ntrace 256 2>&1 | tee elmo_log.txt
+	@echo "=== masked-d1 traces in output_masked/ ==="
+
+disasm: permnet.list bitmask.list masked_d1.list
 	@echo "=== Disassembly generated ==="
 
 clean:
 	rm -f *.o *.elf *.bin *.list *.map *.d
-	rm -rf output_permnet output_bitmask
+	rm -rf output_permnet output_bitmask output_masked

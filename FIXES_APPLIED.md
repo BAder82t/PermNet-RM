@@ -178,6 +178,29 @@ have not been applied yet.
   optimisation level; also grep the masked encoder body for conditional-
   jump mnemonics.
 
+## Cortex-M4 simulator alternatives — researched and ruled out
+
+Before doing more work on Part 4.3, we checked the public state of M4
+leakage simulators so the roadmap reflects reality:
+
+- **ELMO** (`sca-research/ELMO`) — Cortex-M0 only by design; the emulator
+  is a custom Thumbulator and the power model is calibrated for the M0.
+- **GILES** (`sca-research/GILES`) — integrates ELMO's power model into a
+  leakage-assessment tool. Still Cortex-M0; latest release June 2019; not
+  actively maintained.
+- **ROSITA / ELMO***` — explicitly stated in the ROSITA paper that the
+  underlying model "may not be suitable for more advanced processors like
+  the Cortex-M4." Intended as a leakage-transformation pass on ELMO, not
+  a new simulator.
+- Several Cortex-M emulators exist (`zmu`, `armv6m-sim`, `memu`,
+  `usim`, etc.) but without a calibrated M4 power model they do not
+  substitute for ELMO.
+
+Conclusion: no maintained, publicly available, Cortex-M4-calibrated
+leakage simulator exists at the time of writing. The only credible route
+to an M4 claim remains real hardware (ChipWhisperer + STM32F303 /
+STM32F415), i.e. Part 4.3 as originally scoped.
+
 ## Part 4.1 / 4.2 — ELMO reproducibility
 
 - **Added `elmo/README.md`** — standalone reproduction guide. Lists
@@ -192,13 +215,33 @@ have not been applied yet.
      `make --version`, `python3` / `numpy` / `matplotlib` versions, host
      `uname`, and the current git commit + dirty state of `../elmo_tool/`)
      into `versions.txt`.
-  2. Runs `make clean && make` to rebuild `permnet.bin` and `bitmask.bin`.
-  3. Runs `make run` (ELMO over both binaries, producing
-     `output_{permnet,bitmask}/output/traces/`).
-  4. Runs `analyze_traces.py` on both trace dirs and pipes its output to
-     `table5.txt` while saving plots under `elmo/plots/`.
+  2. Runs `make clean && make` to rebuild `permnet.bin`, `bitmask.bin`,
+     and the new `masked_d1.bin`.
+  3. Runs `make run` (ELMO over all three binaries, producing
+     `output_{permnet,bitmask,masked}/output/traces/`).
+  4. Runs `analyze_traces.py` three times with explicit labels:
+     (a) PermNet-RM vs BIT0MASK — the paper's Table 5.
+     (b) masked d=1 vs BIT0MASK — attack-relevant signal reduction under
+         a fresh share.
+     (c) masked d=1 vs unmasked PermNet-RM — does masking further reduce
+         residual Cortex-M0 leakage on top of the butterfly encoder.
+     Writes all three comparison blocks into `table5.txt` and separates
+     the plots into `plots/permnet_vs_bitmask/`, `plots/masked_vs_bitmask/`,
+     `plots/masked_vs_permnet/`.
   5. Fails fast if `arm-none-eabi-gcc`, `make`, `python3`, `../elmo_tool/`,
      or the built ELMO binary are missing.
+- **Added `elmo/elmo_masked_d1.c`** — Thumb harness for the masked d=1
+  composition. For each of 256 messages, draws one pseudo-random share
+  `s0` from a fixed-seed linear congruential PRNG (the LCG is
+  non-cryptographic and is only there to break per-message correlation
+  for the ELMO measurement; production must use a cryptographic RNG).
+  Each masked encoding is wrapped in one trigger pair, so ELMO produces
+  256 per-input traces in the same shape as the other two harnesses.
+  `elmo/Makefile` extended with the `masked_d1` target and the
+  `run-masked` phony target; `.PHONY` and `clean` updated accordingly.
+- **`elmo/analyze_traces.py`** — accepts two optional label arguments so
+  the three comparisons above each print with the correct pair of
+  encoder names.
 - **Cortex-M0 vs Cortex-M4 caveat** (Part 4.1) already surfaced in
   `README.md` under "What is (and is not) demonstrated", in
   `LIMITATIONS.md`, and now in `elmo/README.md`'s "Scope" section.

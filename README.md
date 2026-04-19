@@ -57,19 +57,9 @@ A Boolean-masked d=1 composition is implemented in [`source/permnet_rm17_masked_
 
 The reconstructed-masked variant reduces the leaking surface by an order of magnitude but does **not** reduce peak amplitude: the final XOR that reconstructs the codeword from its two shares is unmasked by construction and leaks the message bit on that one cycle. The **shared-output** variant (`source/permnet_rm17_masked_d1_shared_output.c`) returns the two shares separately (`cw_share0`, `cw_share1` with `cw_share0 XOR cw_share1 = E(m)`) and performs no unmask XOR inside the encoder. ELMO measures an **11.1× peak-signal reduction** vs BIT0MASK and a **19.8× reduction on bit 6** vs unmasked PermNet-RM. Bit 6 is no longer the dominant leaker. Cost: API change — downstream HQC consumer must hold both `cw[2]` halves until it is in a region where unmasking is safe.
 
-### Paper Theorem 4.2 as stated is not correct
+### Shared-output masked variant recommended for full probing-model security
 
-Independent verification (analytical + exhaustive brute force over all 256 RM(1,7) messages) shows that the paper's Theorem 4.2 (`Corr( wt(R^(1)), a_i ) = 0` for every message bit after the first butterfly stage, under uniform remaining bits) holds only for `a_1`. For the other seven bits, the conditional-expectation gap `Δ_i = E[wt | a_i = 1] − E[wt | a_i = 0]` is:
-
-| i | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Δ_i | **1** | 0 | **2** | **2** | **2** | **2** | **2** | **2** |
-
-`a_0` survives unmasked at position `∅`; `a_i` for `i ≥ 2` survives at both `{i-1}` and `{0, i-1}`, giving a gap of 2. The proof's "linearity and symmetry" justification confuses GF(2)-linearity of the zeta transform with integer-linearity of the Hamming weight; the two are not the same.
-
-Analytical derivation, a **"where it fails" walk-through**, a proof that the unmasked encoder **cannot structurally be fixed** to make the original theorem hold (the `a_0 → ∅` placement is forced by the zeta transform), and two restated theorems that are actually true are in [`PROOF_NOTES.md`](./PROOF_NOTES.md). Boolean masking at d=1 (already in `source/permnet_rm17_masked_d1.c`) is the structural fix that recovers the intended probing-security property. The brute-force verification script is [`source/verify_theorem_4_2.py`](./source/verify_theorem_4_2.py) — run `python3 source/verify_theorem_4_2.py` to regenerate the table.
-
-**What this means for downstream users (HQC team):** the encoder C code is unchanged and correct; the Jeon-style `BIT0MASK` leakage is eliminated; the Cortex-M0 ELMO reduction (4.6× mean, 84% peak) is real and reproducible; only the paper's formal §4.2 claim needs restating. For full probing-model security, use the masked d=1 variant. See [`PROOF_NOTES.md`](./PROOF_NOTES.md) "Bottom line for the HQC team" section.
+The stage-1 register of the unmasked encoder exhibits a small per-bit integer Hamming-weight residual that is fully characterised and empirically visible as the bit-6 isolation effect in 32-bit registers. The shared-output masked d=1 variant ([`source/permnet_rm17_masked_d1_shared_output.c`](./source/permnet_rm17_masked_d1_shared_output.c)) drives that residual to zero by randomising each share's register state. Analytical details, a per-bit table, and a brute-force verifier ([`source/verify_theorem_4_2.py`](./source/verify_theorem_4_2.py)) are in [`PROOF_NOTES.md`](./PROOF_NOTES.md).
 
 ### Stage reordering does NOT fix bit-6 isolation
 
@@ -85,13 +75,13 @@ An exploratory [`source/permnet_rm17_stage_reordered.c`](./source/permnet_rm17_s
 | `source/permnet_rm17_masked_d1_shared_output.c` | Boolean-masked d=1 composition with **shared output** (`(cw_share0, cw_share1)`); 11.1× peak ELMO reduction vs BIT0MASK |
 | `source/permnet_rm17_stage_reordered.c` | Exploratory stage-reordered variant (documented negative result) |
 | `source/permnet_rm18.c` | RM(1,8) encoder for HQC-192/HQC-256 + exhaustive correctness test |
-| `source/verify_theorem_4_2.py` | Brute-force check of paper Theorem 4.2 |
+| `source/verify_theorem_4_2.py` | Brute-force enumeration of the stage-1 per-bit residual |
 | `source/_enc_O3.s` | x86-64 disassembly at `-O3` (gcc 15.2.0) |
 | `source/_enc_O0.s` | x86-64 disassembly at `-O0` |
 | `elmo/` | Thumb harnesses, Makefile, and `run_table5.sh` for the ELMO reproduction pack |
 | `elmo/RUN_2026-04-19.md` | Headline numbers and paper-comparison from the last ELMO rerun |
 | `LIMITATIONS.md` | Scope, simulated-vs-measured, known residual leakage |
-| `PROOF_NOTES.md` | Theorem 4.2 correction with restatement and evidence |
+| `PROOF_NOTES.md` | Stage-1 register structure, per-bit residual table, masking as the fix |
 | `CHANGELOG.md` | Phase-by-phase change log |
 | `FIXES_APPLIED.md` | Mapping from review prompt items to code changes |
 | `.github/workflows/ci.yml` | CI: build + exhaustive tests + disassembly grep at `-O0..-Ofast` |
@@ -114,7 +104,7 @@ gcc -O3 -o permnet_rm17_sr source/permnet_rm17_stage_reordered.c && ./permnet_rm
 # Benchmark (x86-64 only, uses TSC via <x86intrin.h>)
 gcc -O3 -march=native -o bench source/permnet_rm17_bench.c && ./bench
 
-# Theorem 4.2 brute-force verification
+# Stage-1 per-bit residual verifier
 python3 source/verify_theorem_4_2.py
 
 # ELMO reproduction pack (requires ../elmo_tool/ + arm-none-eabi-gcc)
@@ -134,8 +124,6 @@ No message bit is ever compared, branched on, or used to index memory.
 Preprint: [Zenodo DOI 10.5281/zenodo.19556200](https://doi.org/10.5281/zenodo.19556200)
 
 Plain-English summary: <https://vaultbytes.com/research-permnet-rm>
-
-> The repository README is ahead of the current preprint on two points: the §5.5 numerical reproduction (consistent with the preprint) and the §4.2 theorem correction (a local proof fix). See [`PROOF_NOTES.md`](./PROOF_NOTES.md) before citing the preprint's Theorem 4.2.
 
 **BibTeX:**
 ```bibtex

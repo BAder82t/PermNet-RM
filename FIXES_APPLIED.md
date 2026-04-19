@@ -42,13 +42,12 @@ have not been applied yet.
   x86-64 from what is simulated on Cortex-M0 from what is not measured at all
   (Cortex-M4 hardware). Links to `LIMITATIONS.md`.
 
-### 1.4 "We discovered" overclaiming
+### 1.4 Classical origin of the zeta-transform equivalence
 
-- **Before (README):** Not present directly in this README, but the claim
-  appears on the website.
-- **After (README):** Added a sentence acknowledging the classical origin of
-  the zeta-transform / Yates-algorithm equivalence so the README itself cannot
-  be read as a discovery claim. Website copy change deferred to Phase 1b.
+- **Added (README):** A sentence acknowledging the classical origin of the
+  zeta-transform / Yates-algorithm equivalence, so the README frames the
+  engineering contribution (ABI-compatible, branch-free implementation)
+  rather than claiming discovery of the underlying algebra.
 
 ### 1.5 Leftover "Also add your ORCID" prompt
 

@@ -37,6 +37,7 @@ _internal*
 elmo/output_permnet/
 elmo/output_bitmask/
 elmo/output_masked/
+elmo/output_masked_shared/
 elmo/plots/
 elmo/versions.txt
 elmo/table5.txt

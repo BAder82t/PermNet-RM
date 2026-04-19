@@ -60,6 +60,9 @@
 #define MASK_K4 0x0000FFFF0000FFFFULL
 #define MASK_K5 0x00000000FFFFFFFFULL
 
+/* Per-stage compiler barrier. See source/permnet_rm17.c for the rationale. */
+#define BUTTERFLY_BARRIER(x) __asm__ volatile ("" : "+r"(x))
+
 void reed_muller_encode_permnet_stage_reordered(uint64_t codeword[2],
                                             const uint8_t *message)
 {
@@ -82,29 +85,38 @@ void reed_muller_encode_permnet_stage_reordered(uint64_t codeword[2],
                   | (m6 << 32);
     uint64_t high = m7;
 
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
+
     /* Stage k = 5 first: propagate lo0 into lo1 and hi0 into hi1. */
     low  ^= (low  & MASK_K5) << 32;
     high ^= (high & MASK_K5) << 32;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     /* Stage k = 6: cross-half XOR. After this, every 32-bit physical word
      * holds contributions from multiple message bits. */
     high ^= low;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     /* Stages k = 0 .. 4, identical to the baseline encoder. */
     low  ^= (low  & MASK_K0) << 1;
     high ^= (high & MASK_K0) << 1;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     low  ^= (low  & MASK_K1) << 2;
     high ^= (high & MASK_K1) << 2;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     low  ^= (low  & MASK_K2) << 4;
     high ^= (high & MASK_K2) << 4;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     low  ^= (low  & MASK_K3) << 8;
     high ^= (high & MASK_K3) << 8;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     low  ^= (low  & MASK_K4) << 16;
     high ^= (high & MASK_K4) << 16;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     codeword[0] = low;
     codeword[1] = high;
@@ -138,13 +150,21 @@ static void reed_muller_encode_permnet_baseline(uint64_t codeword[2],
                   | (m6 << 32);
     uint64_t high = m7;
 
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
     low  ^= (low  & MASK_K0) << 1;  high ^= (high & MASK_K0) << 1;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
     low  ^= (low  & MASK_K1) << 2;  high ^= (high & MASK_K1) << 2;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
     low  ^= (low  & MASK_K2) << 4;  high ^= (high & MASK_K2) << 4;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
     low  ^= (low  & MASK_K3) << 8;  high ^= (high & MASK_K3) << 8;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
     low  ^= (low  & MASK_K4) << 16; high ^= (high & MASK_K4) << 16;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
     low  ^= (low  & MASK_K5) << 32; high ^= (high & MASK_K5) << 32;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
     high ^= low;
+    BUTTERFLY_BARRIER(low); BUTTERFLY_BARRIER(high);
 
     codeword[0] = low;
     codeword[1] = high;

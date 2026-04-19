@@ -73,6 +73,29 @@ All notable changes to PermNet-RM are documented here.
 - ELMO rerun — deferred until a variant that actually changes the bit-6
   trajectory exists.
 
+## [Unreleased] — Phase 4.2 ELMO reproducibility pack
+
+### Added
+- `elmo/README.md` — standalone reproduction guide: prerequisites, ELMO
+  upstream and pinned commit (`sca-research/ELMO` @ `7c4e293`), determinism
+  argument (identical binary + identical `coeffs.txt` + fixed
+  `randdata100000.txt` → bit-identical traces, so raw traces do not need
+  to be checked in), file map, and scope (Cortex-M0 simulated, Cortex-M4
+  hardware still pending).
+- `elmo/run_table5.sh` — one-command reproduction wrapper. Records a
+  full toolchain snapshot into `versions.txt` (arm-none-eabi-gcc, make,
+  python3, numpy, matplotlib, host uname, ELMO git commit + dirty
+  state), rebuilds both Thumb binaries, runs ELMO on each, pipes the
+  analysis output into `table5.txt`, writes plots to `elmo/plots/`, and
+  fails fast on missing prerequisites.
+
+### Notes
+- No changes to `elmo/elmo_permnet.c`, `elmo/elmo_bitmask.c`,
+  `elmo/Makefile`, or `elmo/analyze_traces.py`. The Table 5 numbers are
+  whatever the existing pipeline produces under your local toolchain;
+  reproducibility here means "pin the inputs and capture the versions"
+  rather than "regenerate cached traces from a checked-in seed".
+
 ## [Unreleased] — Phase 3 Boolean masking, d = 1
 
 ### Added

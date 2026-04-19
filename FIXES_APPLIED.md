@@ -178,10 +178,37 @@ have not been applied yet.
   optimisation level; also grep the masked encoder body for conditional-
   jump mnemonics.
 
+## Part 4.1 / 4.2 — ELMO reproducibility
+
+- **Added `elmo/README.md`** — standalone reproduction guide. Lists
+  prerequisites (`arm-none-eabi-gcc`, `make`, `python3`, `numpy`,
+  optional `matplotlib`), explains where to clone ELMO (upstream
+  `sca-research/ELMO` pinned at commit `7c4e293`), documents the
+  determinism argument (same binary + same `coeffs.txt` +
+  `randdata100000.txt` → bit-identical ELMO traces), and walks through
+  the output artifacts.
+- **Added `elmo/run_table5.sh`** — one-command wrapper that:
+  1. Records a full toolchain snapshot (`arm-none-eabi-gcc --version`,
+     `make --version`, `python3` / `numpy` / `matplotlib` versions, host
+     `uname`, and the current git commit + dirty state of `../elmo_tool/`)
+     into `versions.txt`.
+  2. Runs `make clean && make` to rebuild `permnet.bin` and `bitmask.bin`.
+  3. Runs `make run` (ELMO over both binaries, producing
+     `output_{permnet,bitmask}/output/traces/`).
+  4. Runs `analyze_traces.py` on both trace dirs and pipes its output to
+     `table5.txt` while saving plots under `elmo/plots/`.
+  5. Fails fast if `arm-none-eabi-gcc`, `make`, `python3`, `../elmo_tool/`,
+     or the built ELMO binary are missing.
+- **Cortex-M0 vs Cortex-M4 caveat** (Part 4.1) already surfaced in
+  `README.md` under "What is (and is not) demonstrated", in
+  `LIMITATIONS.md`, and now in `elmo/README.md`'s "Scope" section.
+- **What is *not* in this commit:** Part 4.3 (real Cortex-M4 hardware
+  measurements). Physical-device runs are called out as the next
+  highest-priority step in `LIMITATIONS.md`. No hardware numbers are
+  fabricated anywhere; the ELMO reproduction is labelled as simulation
+  throughout.
+
 ## Not yet done in this phase
-- **Part 4.1/4.2** — ELMO reproducibility artifacts (standalone
-  `elmo/README.md` with exact toolchain and a single command to reproduce
-  Table 5).
 - **Part 4.3** — Real Cortex-M4 hardware measurements (pending
   ChipWhisperer + STM32F303/F415 access).
 - **Part 5** — Tightened Theorem 4.2 proof in the paper.

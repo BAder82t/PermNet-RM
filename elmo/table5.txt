@@ -1,0 +1,299 @@
+######################################################################
+#  Comparison 1: unmasked PermNet-RM  vs  BIT0MASK baseline
+#  (this is the paper's Table 5)
+######################################################################
+Loading PermNet-RM (unmasked) traces...
+Loading BIT0MASK (vulnerable baseline) traces...
+
+======================================================================
+  PermNet-RM (unmasked)
+======================================================================
+  Trace length:  94 cycles
+  Total power:   [4.98, 5.25]
+
+  --- SIGNAL AMPLITUDE (noise-free, key metric for ELMO) ---
+  Max |E[power|bit=1] - E[power|bit=0]| per bit:
+    bit 0:       0.0086  
+    bit 1:       0.0007  
+    bit 2:       0.0008  
+    bit 3:       0.0007  
+    bit 4:       0.0070  
+    bit 5:       0.0068  
+    bit 6:       0.0135  
+    bit 7:       0.0083  
+  Overall max signal:  0.0135
+  Mean max signal:     0.0058
+
+  --- CORRELATION (high in noise-free sim for any nonzero signal) ---
+  Per-bit max |r|:
+    bit 0: 0.770585
+    bit 1: 0.640868
+    bit 2: 0.836008
+    bit 3: 0.670938
+    bit 4: 0.903388
+    bit 5: 0.982956
+    bit 6: 0.979429
+    bit 7: 0.948609
+  Leaking cycles (|r| > 0.3): 36/94
+
+======================================================================
+  BIT0MASK (vulnerable baseline)
+======================================================================
+  Trace length:  293 cycles
+  Total power:   [20.21, 21.21]
+
+  --- SIGNAL AMPLITUDE (noise-free, key metric for ELMO) ---
+  Max |E[power|bit=1] - E[power|bit=0]| per bit:
+    bit 0:       0.0206  
+    bit 1:       0.0029  
+    bit 2:       0.0031  
+    bit 3:       0.0032  
+    bit 4:       0.0031  
+    bit 5:       0.0033  
+    bit 6:       0.0230  
+    bit 7:       0.0058  
+  Overall max signal:  0.0230
+  Mean max signal:     0.0081
+
+  --- CORRELATION (high in noise-free sim for any nonzero signal) ---
+  Per-bit max |r|:
+    bit 0: 1.000000
+    bit 1: 1.000000
+    bit 2: 1.000000
+    bit 3: 1.000000
+    bit 4: 1.000000
+    bit 5: 1.000000
+    bit 6: 1.000000
+    bit 7: 1.000000
+  Leaking cycles (|r| > 0.3): 187/293
+
+======================================================================
+  JEON ATTACK-RELEVANT COMPARISON
+======================================================================
+  ELMO produces noise-free traces.  In noise-free data, Pearson |r|
+  is ~1 for ANY nonzero signal.  The attack-relevant metric is
+  signal AMPLITUDE: how much does power change between bit=0 and
+  bit=1?  Larger amplitude = easier to extract from noisy real
+  measurements.  BIT0MASK's mask flips 32 register bits (HW 0 vs 32);
+  PermNet-RM's bit placement flips 1 register bit (HW 0 vs 1).
+
+  Metric                            | PermNet-RM  | BIT0MASK
+  ----------------------------------+-------------+-----------
+  Trace length (cycles)             |          94 |       293
+  Max signal amplitude              |        0.01 |      0.02
+  Mean signal amplitude             |        0.01 |      0.01
+  Signal ratio (BIT0MASK/PermNet)   |             |      1.7x
+  Max per-bit |r| (noise-free)      |      0.9830 |    1.0000
+
+  BIT0MASK signal is 1.7x larger than PermNet-RM.
+  Under realistic noise (sigma), the number of traces needed to
+  recover a bit scales as (sigma/signal)^2.  This means BIT0MASK
+  requires ~3x fewer traces than PermNet-RM for the same
+  recovery confidence.  Jeon achieves single-trace recovery of
+  BIT0MASK; PermNet-RM would require ~3 traces for equivalent SNR.
+
+Generating plots...
+
+[matplotlib not available — skipping plots]
+
+Done.
+
+######################################################################
+#  Comparison 2: masked d=1 PermNet-RM  vs  BIT0MASK baseline
+#  (shows attack-relevant signal reduction under a fresh share)
+######################################################################
+Loading PermNet-RM masked d=1 traces...
+Loading BIT0MASK (vulnerable baseline) traces...
+
+======================================================================
+  PermNet-RM masked d=1
+======================================================================
+  Trace length:  211 cycles
+  Total power:   [12.26, 12.47]
+
+  --- SIGNAL AMPLITUDE (noise-free, key metric for ELMO) ---
+  Max |E[power|bit=1] - E[power|bit=0]| per bit:
+    bit 0:       0.0014  
+    bit 1:       0.0011  
+    bit 2:       0.0017  
+    bit 3:       0.0013  
+    bit 4:       0.0006  
+    bit 5:       0.0024  
+    bit 6:       0.0013  
+    bit 7:       0.0012  
+  Overall max signal:  0.0024
+  Mean max signal:     0.0014
+
+  --- CORRELATION (high in noise-free sim for any nonzero signal) ---
+  Per-bit max |r|:
+    bit 0: 0.454733
+    bit 1: 0.570769
+    bit 2: 0.406937
+    bit 3: 0.272592
+    bit 4: 0.267381
+    bit 5: 0.215955
+    bit 6: 0.500440
+    bit 7: 0.274405
+  Leaking cycles (|r| > 0.3): 6/211
+
+======================================================================
+  BIT0MASK (vulnerable baseline)
+======================================================================
+  Trace length:  293 cycles
+  Total power:   [20.21, 21.21]
+
+  --- SIGNAL AMPLITUDE (noise-free, key metric for ELMO) ---
+  Max |E[power|bit=1] - E[power|bit=0]| per bit:
+    bit 0:       0.0206  
+    bit 1:       0.0029  
+    bit 2:       0.0031  
+    bit 3:       0.0032  
+    bit 4:       0.0031  
+    bit 5:       0.0033  
+    bit 6:       0.0230  
+    bit 7:       0.0058  
+  Overall max signal:  0.0230
+  Mean max signal:     0.0081
+
+  --- CORRELATION (high in noise-free sim for any nonzero signal) ---
+  Per-bit max |r|:
+    bit 0: 1.000000
+    bit 1: 1.000000
+    bit 2: 1.000000
+    bit 3: 1.000000
+    bit 4: 1.000000
+    bit 5: 1.000000
+    bit 6: 1.000000
+    bit 7: 1.000000
+  Leaking cycles (|r| > 0.3): 187/293
+
+======================================================================
+  JEON ATTACK-RELEVANT COMPARISON
+======================================================================
+  ELMO produces noise-free traces.  In noise-free data, Pearson |r|
+  is ~1 for ANY nonzero signal.  The attack-relevant metric is
+  signal AMPLITUDE: how much does power change between bit=0 and
+  bit=1?  Larger amplitude = easier to extract from noisy real
+  measurements.  BIT0MASK's mask flips 32 register bits (HW 0 vs 32);
+  PermNet-RM's bit placement flips 1 register bit (HW 0 vs 1).
+
+  Metric                            | PermNet-RM  | BIT0MASK
+  ----------------------------------+-------------+-----------
+  Trace length (cycles)             |         211 |       293
+  Max signal amplitude              |        0.00 |      0.02
+  Mean signal amplitude             |        0.00 |      0.01
+  Signal ratio (BIT0MASK/PermNet)   |             |      9.4x
+  Max per-bit |r| (noise-free)      |      0.5708 |    1.0000
+
+  BIT0MASK signal is 9.4x larger than PermNet-RM.
+  Under realistic noise (sigma), the number of traces needed to
+  recover a bit scales as (sigma/signal)^2.  This means BIT0MASK
+  requires ~89x fewer traces than PermNet-RM for the same
+  recovery confidence.  Jeon achieves single-trace recovery of
+  BIT0MASK; PermNet-RM would require ~89 traces for equivalent SNR.
+
+Generating plots...
+
+[matplotlib not available — skipping plots]
+
+Done.
+
+######################################################################
+#  Comparison 3: masked d=1 PermNet-RM  vs  unmasked PermNet-RM
+#  (does masking further reduce residual leakage on Cortex-M0?)
+######################################################################
+Loading PermNet-RM masked d=1 traces...
+Loading PermNet-RM (unmasked) traces...
+
+======================================================================
+  PermNet-RM masked d=1
+======================================================================
+  Trace length:  211 cycles
+  Total power:   [12.26, 12.47]
+
+  --- SIGNAL AMPLITUDE (noise-free, key metric for ELMO) ---
+  Max |E[power|bit=1] - E[power|bit=0]| per bit:
+    bit 0:       0.0014  
+    bit 1:       0.0011  
+    bit 2:       0.0017  
+    bit 3:       0.0013  
+    bit 4:       0.0006  
+    bit 5:       0.0024  
+    bit 6:       0.0013  
+    bit 7:       0.0012  
+  Overall max signal:  0.0024
+  Mean max signal:     0.0014
+
+  --- CORRELATION (high in noise-free sim for any nonzero signal) ---
+  Per-bit max |r|:
+    bit 0: 0.454733
+    bit 1: 0.570769
+    bit 2: 0.406937
+    bit 3: 0.272592
+    bit 4: 0.267381
+    bit 5: 0.215955
+    bit 6: 0.500440
+    bit 7: 0.274405
+  Leaking cycles (|r| > 0.3): 6/211
+
+======================================================================
+  PermNet-RM (unmasked)
+======================================================================
+  Trace length:  94 cycles
+  Total power:   [4.98, 5.25]
+
+  --- SIGNAL AMPLITUDE (noise-free, key metric for ELMO) ---
+  Max |E[power|bit=1] - E[power|bit=0]| per bit:
+    bit 0:       0.0086  
+    bit 1:       0.0007  
+    bit 2:       0.0008  
+    bit 3:       0.0007  
+    bit 4:       0.0070  
+    bit 5:       0.0068  
+    bit 6:       0.0135  
+    bit 7:       0.0083  
+  Overall max signal:  0.0135
+  Mean max signal:     0.0058
+
+  --- CORRELATION (high in noise-free sim for any nonzero signal) ---
+  Per-bit max |r|:
+    bit 0: 0.770585
+    bit 1: 0.640868
+    bit 2: 0.836008
+    bit 3: 0.670938
+    bit 4: 0.903388
+    bit 5: 0.982956
+    bit 6: 0.979429
+    bit 7: 0.948609
+  Leaking cycles (|r| > 0.3): 36/94
+
+======================================================================
+  JEON ATTACK-RELEVANT COMPARISON
+======================================================================
+  ELMO produces noise-free traces.  In noise-free data, Pearson |r|
+  is ~1 for ANY nonzero signal.  The attack-relevant metric is
+  signal AMPLITUDE: how much does power change between bit=0 and
+  bit=1?  Larger amplitude = easier to extract from noisy real
+  measurements.  BIT0MASK's mask flips 32 register bits (HW 0 vs 32);
+  PermNet-RM's bit placement flips 1 register bit (HW 0 vs 1).
+
+  Metric                            | PermNet-RM  | BIT0MASK
+  ----------------------------------+-------------+-----------
+  Trace length (cycles)             |         211 |        94
+  Max signal amplitude              |        0.00 |      0.01
+  Mean signal amplitude             |        0.00 |      0.01
+  Signal ratio (BIT0MASK/PermNet)   |             |      5.5x
+  Max per-bit |r| (noise-free)      |      0.5708 |    0.9830
+
+  BIT0MASK signal is 5.5x larger than PermNet-RM.
+  Under realistic noise (sigma), the number of traces needed to
+  recover a bit scales as (sigma/signal)^2.  This means BIT0MASK
+  requires ~31x fewer traces than PermNet-RM for the same
+  recovery confidence.  Jeon achieves single-trace recovery of
+  BIT0MASK; PermNet-RM would require ~31 traces for equivalent SNR.
+
+Generating plots...
+
+[matplotlib not available — skipping plots]
+
+Done.

@@ -16,9 +16,12 @@ CFLAGS      = -Os -g -ffreestanding -nostdinc -isystem $(GCC_INCDIR) \
 LDFLAGS     = -nostdlib -Telmo.ld -Wl,--gc-sections
 LDLIBS      = -lgcc
 
-ELMO        = ../elmo_tool/elmo
-ELMO_COEFFS = ../elmo_tool/coeffs.txt
-ELMO_DATA   = ../elmo_tool/Examples/randdata100000.txt
+# Absolute paths so they survive the `cd output_{permnet,bitmask,masked}`
+# inside the run-* rules. `$(abspath ...)` resolves without requiring the
+# path to exist yet (unlike $(realpath ...)).
+ELMO        = $(abspath ../elmo_tool/elmo)
+ELMO_COEFFS = $(abspath ../elmo_tool/coeffs.txt)
+ELMO_DATA   = $(abspath ../elmo_tool/Examples/randdata100000.txt)
 
 # Common objects
 VECTOR_OBJ  = vector.o
@@ -72,27 +75,27 @@ run: run-permnet run-bitmask run-masked
 run-permnet: permnet.bin
 	@echo "=== Running ELMO on PermNet-RM encoder ==="
 	@mkdir -p output_permnet/traces
-	cd output_permnet && cp $(ELMO_COEFFS) coeffs.txt && \
-	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput && \
-	    ln -sf $(ELMO_DATA) . && \
+	cd output_permnet && cp $(ELMO_COEFFS) coeffs_M3.txt && \
+	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput Examples && \
+	    ln -sf $(ELMO_DATA) Examples/randdata100000.txt && \
 	    $(ELMO) ../permnet.bin --Ntrace 256 2>&1 | tee elmo_log.txt
 	@echo "=== PermNet-RM traces in output_permnet/ ==="
 
 run-bitmask: bitmask.bin
 	@echo "=== Running ELMO on BIT0MASK encoder ==="
 	@mkdir -p output_bitmask/traces
-	cd output_bitmask && cp $(ELMO_COEFFS) coeffs.txt && \
-	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput && \
-	    ln -sf $(ELMO_DATA) . && \
+	cd output_bitmask && cp $(ELMO_COEFFS) coeffs_M3.txt && \
+	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput Examples && \
+	    ln -sf $(ELMO_DATA) Examples/randdata100000.txt && \
 	    $(ELMO) ../bitmask.bin --Ntrace 256 2>&1 | tee elmo_log.txt
 	@echo "=== BIT0MASK traces in output_bitmask/ ==="
 
 run-masked: masked_d1.bin
 	@echo "=== Running ELMO on Boolean-masked (d=1) PermNet-RM encoder ==="
 	@mkdir -p output_masked/traces
-	cd output_masked && cp $(ELMO_COEFFS) coeffs.txt && \
-	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput && \
-	    ln -sf $(ELMO_DATA) . && \
+	cd output_masked && cp $(ELMO_COEFFS) coeffs_M3.txt && \
+	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput Examples && \
+	    ln -sf $(ELMO_DATA) Examples/randdata100000.txt && \
 	    $(ELMO) ../masked_d1.bin --Ntrace 256 2>&1 | tee elmo_log.txt
 	@echo "=== masked-d1 traces in output_masked/ ==="
 

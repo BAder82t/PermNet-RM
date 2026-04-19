@@ -47,12 +47,21 @@ Scope note for readers, reviewers, and downstream integrators.
 - **32-bit bit-6 isolation in the unmasked baseline.** On 32-bit targets,
   the 128-bit logical state is split across four physical registers.
   Message bit `m6` enters at logical position 32 (bit 0 of the physical
-  word `lo1`) with no other message bit sharing that word, so its Hamming
-  weight doubles through the early butterfly stages without mixing. In
-  ELMO on Cortex-M0 this word's signal reaches approximately 84% of the
-  peak single-bit signal of the `BIT0MASK` baseline. Paper §5.5 covers
-  this; the README surfaces the same caveat. The masked d=1 composition
-  is the intended mitigation; empirical confirmation is pending as above.
+  word `lo1`) with no other message bit sharing that word, so its
+  Hamming weight doubles through the early butterfly stages without
+  mixing. In our local ELMO rerun of 2026-04-19 (see
+  [`elmo/RUN_2026-04-19.md`](elmo/RUN_2026-04-19.md)), bit 6 dominates
+  the per-bit amplitude distribution of the unmasked variant, with a
+  ratio of **0.0135 / 0.0230 = 59%** of the `BIT0MASK` peak. The paper's
+  §5.5 surfaces this as "≈84%", a figure produced by an earlier run on
+  a different toolchain; see `RUN_2026-04-19.md` for an honest
+  side-by-side and an action list for the paper authors.
+- **Empirical validation of masked d=1.** The Cortex-M0 ELMO rerun shows
+  the masked composition brings the peak-per-bit signal from 0.0230
+  (`BIT0MASK`) down to 0.0024 — a 9.4× reduction — and drops the leaking-
+  cycle fraction from 64% to 3%. This is a single-share-per-trace
+  measurement, not a TVLA sweep, and the target is still a simulated
+  Cortex-M0. Real Cortex-M4 hardware remains pending.
 
 ## Dead ends (for the record)
 

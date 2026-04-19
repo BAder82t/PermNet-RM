@@ -73,6 +73,45 @@ All notable changes to PermNet-RM are documented here.
 - ELMO rerun — deferred until a variant that actually changes the bit-6
   trajectory exists.
 
+## [Unreleased] — Shared-output masked d=1 (closes the unmask-cycle leak)
+
+### Added
+- `source/permnet_rm17_masked_d1_shared_output.c` — Boolean-masked d=1
+  encoder that returns the codeword in shared form
+  `(cw_share0, cw_share1)` with `cw_share0 XOR cw_share1 = E(m)`.
+  Performs no unmask XOR inside the encoder; exhaustively verified for
+  all 65,536 `(s0, s1)` pairs at every GCC optimisation level.
+- `elmo/elmo_masked_d1_shared_output.c` — matching ELMO harness. ELMO
+  trigger closes *before* any downstream reconstruction, so the
+  unmask-cycle leak observed in `elmo/elmo_masked_d1.c` is excluded.
+- `elmo/Makefile`: new `masked_d1_shared` target and `run-masked-shared`
+  phony target; `make run` now executes ELMO on all four encoders.
+- `elmo/run_table5.sh`: two new comparison blocks in `table5.txt` — (4)
+  shared-output vs BIT0MASK, and (5) shared-output vs reconstructed
+  masked. Separate `plots/` subdirectories for each.
+- CI: build + exhaustive correctness check for the new encoder at
+  every GCC optimisation level; disassembly grep for conditional
+  jumps on its body.
+
+### Empirical result (Cortex-M0 ELMO, 2026-04-19)
+- Shared-output peak signal: **405.6** (vs 4,493.4 BIT0MASK, 3,794.5
+  reconstructed masked, 3,779.6 unmasked PermNet). **11.1×** reduction
+  over BIT0MASK; **9.4×** reduction over the reconstructed masked
+  variant.
+- Mean signal: **204.6** (vs BIT0MASK 2,687.0, reconstructed 675.9,
+  unmasked 586.9). **13.1×** reduction over BIT0MASK.
+- Leaking-cycle fraction: **1.6%** (3/184), vs BIT0MASK 68% and
+  unmasked 38%.
+- Bit 6 signal: **191.1**, down from 3,779.6 (unmasked) and 3,794.5
+  (reconstructed masked). **19.8×** reduction on the specific bit the
+  paper's §5.5 singles out. Bit 6 is no longer the dominant leaker.
+
+### API trade-off
+The shared-output encoder is NOT ABI-compatible with HQC's
+`reed_muller_encode()`. Downstream consumers must hold both
+`cw_share0[2]` and `cw_share1[2]` and defer the final XOR until they
+are in a region where unmasking the codeword is safe.
+
 ## [Unreleased] — Masked d=1 ELMO harness + M4 simulator research
 
 ### Added

@@ -6,7 +6,7 @@ A branch-free, fixed-topology Reed-Muller encoder for HQC, built from a GF(2) ze
 
 PermNet-RM is a drop-in replacement for `reed_muller_encode()` in the HQC reference implementation. It eliminates the `BIT0MASK` idiom (`mask = -((uint64_t)((m >> i) & 1))`) that the Jeon et al. single-trace attack exploits:
 
-- **Jeon et al. (ePrint 2026/071)** recover RM-input symbols on an STM32F303 (ARM Cortex-M4) and use Reed–Solomon post-correction to recover up to 98.9% of full 128-bit messages from a single decapsulation trace with as few as 20 profiling traces. The target of the attack is the RM encoder's `BIT0MASK` idiom, reached during the FO re-encryption step.
+- **Jeon et al. (ePrint 2026/071)** recover the full 128-bit encapsulation message from a single decapsulation trace with up to 96.9% success, using a total of 5,000 power traces for profiling and evaluation on an STM32F303 (ARM Cortex-M4). The target of the attack is the RM encoder's `BIT0MASK` idiom, reached during the FO re-encryption step.
 - **Lai et al. (ePrint 2025/2162, YODO)** demonstrate ciphertext-independent, passive single-trace attacks on HQC that exploit timing leakages in sparse-vector processing (`gf_carryless_mul`, `find_peaks`, Karatsuba base cases, key re-sampling). YODO does *not* attack the RM encoder directly, but it motivates constant-time work across the HQC code base. The RM encoder is a separate, complementary leakage source.
 
 PermNet-RM replaces the conditional generator-row accumulation with a fixed-topology butterfly network that computes the GF(2) zeta transform. Message bits enter as initial register state at fixed positions; every subsequent operation is unconditional.
@@ -48,12 +48,14 @@ See [`elmo/RUN_2026-04-19.md`](./elmo/RUN_2026-04-19.md) for the full reproducti
 
 A Boolean-masked d=1 composition is implemented in [`source/permnet_rm17_masked_d1.c`](./source/permnet_rm17_masked_d1.c) (exhaustively verified over all 65,536 share pairs) and a matching ELMO harness in [`elmo/elmo_masked_d1.c`](./elmo/elmo_masked_d1.c). The measured effect on Cortex-M0 ELMO:
 
-| Metric | Unmasked PermNet | Masked d=1 | BIT0MASK |
-|---|---:|---:|---:|
-| Peak single-bit signal | 3,779.6 | 3,794.5 | 4,493.4 |
-| Leaking-cycle fraction | 38% (36/94) | **3% (7/211)** | 68% (199/293) |
+| Metric | Unmasked PermNet | Masked d=1 (reconstructed) | Masked d=1 (**shared output**) | BIT0MASK |
+|---|---:|---:|---:|---:|
+| Peak single-bit signal | 3,779.6 | 3,794.5 | **405.6** | 4,493.4 |
+| Mean single-bit signal | 586.9 | 675.9 | **204.6** | 2,687.0 |
+| Leaking-cycle fraction | 38% (36/94) | 3% (7/211) | **1.6% (3/184)** | 68% (199/293) |
+| Bit 6 signal | 3,779.6 | 3,794.5 | **191.1** | 3,778.4 |
 
-Masking reduces the leaking **surface** by an order of magnitude. It does **not** reduce the peak amplitude, because the final XOR that reconstructs the codeword from its two shares is unmasked by construction and leaks the message bit on that single cycle. Proper output-side protection needs either (a) a shared-output API so downstream HQC code consumes the two halves, or (b) a TVLA-style multi-seed sweep to average away the unmask leakage. Neither is in scope here.
+The reconstructed-masked variant reduces the leaking surface by an order of magnitude but does **not** reduce peak amplitude: the final XOR that reconstructs the codeword from its two shares is unmasked by construction and leaks the message bit on that one cycle. The **shared-output** variant (`source/permnet_rm17_masked_d1_shared_output.c`) returns the two shares separately (`cw_share0`, `cw_share1` with `cw_share0 XOR cw_share1 = E(m)`) and performs no unmask XOR inside the encoder. ELMO measures an **11.1× peak-signal reduction** vs BIT0MASK and a **19.8× reduction on bit 6** vs unmasked PermNet-RM. Bit 6 is no longer the dominant leaker. Cost: API change — downstream HQC consumer must hold both `cw[2]` halves until it is in a region where unmasking is safe.
 
 ### Paper Theorem 4.2 as stated is not correct
 
@@ -79,7 +81,8 @@ An exploratory [`source/permnet_rm17_stage_reordered.c`](./source/permnet_rm17_s
 |------|-------------|
 | `source/permnet_rm17.c` | RM(1,7) encoder for HQC-128 + exhaustive correctness test |
 | `source/permnet_rm17_bench.c` | x86-64 benchmark — PermNet, BIT0MASK, branchy, masked-d1 |
-| `source/permnet_rm17_masked_d1.c` | Boolean-masked d=1 composition + 65,536-pair exhaustive test |
+| `source/permnet_rm17_masked_d1.c` | Boolean-masked d=1 composition (reconstructed output) + 65,536-pair exhaustive test |
+| `source/permnet_rm17_masked_d1_shared_output.c` | Boolean-masked d=1 composition with **shared output** (`(cw_share0, cw_share1)`); 11.1× peak ELMO reduction vs BIT0MASK |
 | `source/permnet_rm17_stage_reordered.c` | Exploratory stage-reordered variant (documented negative result) |
 | `source/permnet_rm18.c` | RM(1,8) encoder for HQC-192/HQC-256 + exhaustive correctness test |
 | `source/verify_theorem_4_2.py` | Brute-force check of paper Theorem 4.2 |

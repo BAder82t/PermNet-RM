@@ -99,17 +99,18 @@ have not been applied yet.
 
 ### 6.4 Jeon et al. citation verification
 
-- **Current README numbers:** "96.9% accuracy from a single power trace" and
-  "STM32F303 (ARM Cortex-M4) target" wording.
-- **Paper preprint (§1.3):** Uses "98.9% full 128-bit message recovery
-  from a single decapsulation trace with as few as 20 profiling traces" and
-  "99.5% with 60 profiling traces on STM32F415".
-- **Mismatch:** The README and paper disagree on the headline percentage
-  (96.9% vs 98.9%). I have not re-read the Jeon abstract in this pass to
-  pick the correct one; fetching the abstract is flagged as a follow-up item
-  below. Pending that, the README was updated to the paper's numbers
-  (98.9% / 20 profiling traces) so the two documents agree internally. Please
-  verify against the ePrint abstract before publishing.
+- **Jeon et al. (ePrint 2026/071) abstract, verified via WebSearch on
+  2026-04-19:** "Using a total of 5,000 power traces for profiling and
+  evaluation, the research recovers the full 128-bit encapsulation message
+  from a single decapsulation trace with up to 96.9% success." Primary
+  target: STM32F303 (Cortex-M4).
+- **Action taken:** README aligned to the abstract (96.9% success, 5,000
+  total profiling+evaluation traces, STM32F303). The paper preprint's §1.3
+  uses different numbers (98.9% / 20 profiling traces on STM32F303 and
+  99.5% / 60 profiling traces on STM32F415) — these look like *body*
+  sub-results quoting specific experiments or a different metric than the
+  headline success figure. The paper authors should verify §1.3 matches
+  the intended reading of the abstract before re-submission.
 
 ## Part 2 — Interleaved injection (partial, with negative result)
 
@@ -254,8 +255,9 @@ STM32F415), i.e. Part 4.3 as originally scoped.
 - **Part 4.3** — Real Cortex-M4 hardware measurements (pending
   ChipWhisperer + STM32F303/F415 access).
 - **Part 5** — Tightened Theorem 4.2 proof in the paper.
-- **Part 6.4 verification** — Re-read the Jeon ePrint abstract and reconcile
-  the 96.9% vs 98.9% figure across README and paper. Flagged above.
+- **Part 6.4** — DONE. Jeon abstract verified (96.9% / 5,000 total traces /
+  STM32F303); README realigned. Paper §1.3 body numbers (98.9% / 20
+  profiling) remain for the paper authors to reconcile internally.
 - **Website copy (`vaultbytes.com/research-permnet-rm`)** — Phase 1b.
 
 ## Honesty notes

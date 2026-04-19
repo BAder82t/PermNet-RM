@@ -54,18 +54,23 @@ Scope note for readers, reviewers, and downstream integrators.
   PermNet peak 3,779.6 ≈ paper 3,780, mean 586.9 ≈ 587, leaking cycles
   36/94 match; bit 6 reaches 84.1% of the BIT0MASK peak (paper: ≈84%).
   The residual leakage is real and unchanged by the encoder alone.
-- **Empirical validation of masked d=1.** The Cortex-M0 ELMO run of the
-  masked composition reduces the leaking-cycle fraction from 38% (unmasked
-  PermNet) or 68% (BIT0MASK) down to 3% of the masked-encoder trace, but
-  does **not** reduce peak per-bit amplitude: bit 6 still hits 3,794 in
-  the masked run, essentially the same as the unmasked 3,780. The reason
-  is the final XOR / output write that reconstructs the codeword from its
-  two shares; that cycle is unmasked by construction and leaks the
-  message bit in the Hamming-weight model. A proper d=1 guarantee at the
-  output would require either keeping the codeword in shared form across
-  the encoder boundary (an API change to downstream HQC code) or a
-  multi-trial TVLA evaluation averaging over many fresh shares. Neither
-  is in this commit. Real Cortex-M4 hardware remains pending.
+- **Empirical validation of masked d=1 (reconstructed output).** The
+  Cortex-M0 ELMO run of `source/permnet_rm17_masked_d1.c` reduces the
+  leaking-cycle fraction from 38% (unmasked) or 68% (BIT0MASK) to 3%,
+  but does **not** reduce peak amplitude because its final XOR that
+  reconstructs the codeword is unmasked by construction. See
+  `elmo/RUN_2026-04-19.md`.
+- **Empirical validation of masked d=1 (shared output).**
+  `source/permnet_rm17_masked_d1_shared_output.c` returns
+  `(cw_share0, cw_share1)` with `cw_share0 XOR cw_share1 = E(m)` and
+  does no unmask XOR inside the encoder. On Cortex-M0 ELMO it cuts
+  peak signal from 4,493.4 (BIT0MASK) to 405.6 (**11.1×** reduction),
+  mean signal from 2,687.0 to 204.6 (13.1× reduction), and leaking-
+  cycle fraction from 68% to 1.6%. Bit 6 drops from 3,779.6 to 191.1
+  (**19.8×** reduction on the paper §5.5 residual). The cost is an API
+  change: downstream HQC code must consume both shares until in a
+  region where unmasking is safe. Real Cortex-M4 hardware remains
+  pending.
 
 ## Dead ends (for the record)
 

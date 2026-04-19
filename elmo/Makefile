@@ -32,7 +32,7 @@ ELMO_DATA   = $(abspath ../elmo_tool/Examples/randdata100000.txt)
 VECTOR_OBJ  = vector.o
 ASMFUNC_OBJ = elmoasmfunctions.o
 
-TARGETS = permnet bitmask masked_d1
+TARGETS = permnet bitmask masked_d1 masked_d1_shared
 
 # ============================================================================
 all: $(addsuffix .bin,$(TARGETS))
@@ -65,6 +65,13 @@ elmo_masked_d1.o: elmo_masked_d1.c elmoasmfunctionsdef.h
 masked_d1.elf: elmo_masked_d1.o $(VECTOR_OBJ) $(ASMFUNC_OBJ) elmo.ld
 	$(CC) $(LDFLAGS) $(ARCH_FLAGS) $(VECTOR_OBJ) elmo_masked_d1.o $(ASMFUNC_OBJ) $(LDLIBS) -o $@
 
+# --- Masked PermNet-RM, d = 1, SHARED OUTPUT --------------------------------
+elmo_masked_d1_shared_output.o: elmo_masked_d1_shared_output.c elmoasmfunctionsdef.h
+	$(CC) $(CFLAGS) $(ARCH_FLAGS) -c -o $@ $<
+
+masked_d1_shared.elf: elmo_masked_d1_shared_output.o $(VECTOR_OBJ) $(ASMFUNC_OBJ) elmo.ld
+	$(CC) $(LDFLAGS) $(ARCH_FLAGS) $(VECTOR_OBJ) elmo_masked_d1_shared_output.o $(ASMFUNC_OBJ) $(LDLIBS) -o $@
+
 # --- Generic rules ----------------------------------------------------------
 %.bin: %.elf
 	$(OBJCOPY) -Obinary $< $@
@@ -73,9 +80,9 @@ masked_d1.elf: elmo_masked_d1.o $(VECTOR_OBJ) $(ASMFUNC_OBJ) elmo.ld
 	$(OBJDUMP) -S $< > $@
 
 # --- ELMO simulation --------------------------------------------------------
-.PHONY: run run-permnet run-bitmask run-masked disasm clean
+.PHONY: run run-permnet run-bitmask run-masked run-masked-shared disasm clean
 
-run: run-permnet run-bitmask run-masked
+run: run-permnet run-bitmask run-masked run-masked-shared
 
 run-permnet: permnet.bin
 	@echo "=== Running ELMO on PermNet-RM encoder ==="
@@ -104,9 +111,18 @@ run-masked: masked_d1.bin
 	    $(ELMO) ../masked_d1.bin --Ntrace 256 2>&1 | tee elmo_log.txt
 	@echo "=== masked-d1 traces in output_masked/ ==="
 
-disasm: permnet.list bitmask.list masked_d1.list
+run-masked-shared: masked_d1_shared.bin
+	@echo "=== Running ELMO on shared-output masked-d1 PermNet-RM encoder ==="
+	@mkdir -p output_masked_shared/traces
+	cd output_masked_shared && cp $(ELMO_COEFFS) coeffs_M3.txt && \
+	    mkdir -p output output/traces output/nonprofiledindexes output/asmoutput Examples && \
+	    ln -sf $(ELMO_DATA) Examples/randdata100000.txt && \
+	    $(ELMO) ../masked_d1_shared.bin --Ntrace 256 2>&1 | tee elmo_log.txt
+	@echo "=== masked-d1-shared-output traces in output_masked_shared/ ==="
+
+disasm: permnet.list bitmask.list masked_d1.list masked_d1_shared.list
 	@echo "=== Disassembly generated ==="
 
 clean:
 	rm -f *.o *.elf *.bin *.list *.map *.d
-	rm -rf output_permnet output_bitmask output_masked
+	rm -rf output_permnet output_bitmask output_masked output_masked_shared

@@ -217,15 +217,18 @@ that makes the (restated) theorem hold for all message bits, not
 just `a_1`.
 
 Empirical caveat (from `elmo/RUN_2026-04-19.md`): the masked
-composition as currently written reconstructs the codeword with a
-final XOR. That XOR is unmasked by construction and in the ELMO
-Hamming-weight model it leaks the message bit in the output write
-(bit 6 peak drops only from `3,779.6` to `3,794.5`, but leaking-
-cycle fraction collapses from 38% to 3%). For a fully probing-secure
-output, the encoder's public API must return the codeword in shared
-form `(cw_share0, cw_share1)` and the downstream HQC consumer must
-operate on both shares. That is an integration-level change and is
-noted as a follow-up.
+composition with a **reconstructed output** leaks the message bit
+on the final unmask XOR (bit 6 peak drops only from `3,779.6` to
+`3,794.5`, though leaking-cycle fraction collapses from 38% to 3%).
+The **shared-output** variant
+(`source/permnet_rm17_masked_d1_shared_output.c`) closes this gap:
+it returns `(cw_share0, cw_share1)` with
+`cw_share0 XOR cw_share1 = E(m)` and performs no unmask XOR inside
+the encoder. ELMO measures peak signal `405.6` (11.1× below
+BIT0MASK and 9.4× below the reconstructed variant) and bit-6
+signal `191.1` (19.8× below unmasked PermNet). Cost: API change —
+downstream HQC consumer must hold both `cw[2]` halves until it is
+in a region where unmasking is safe.
 
 ## Bottom line for the HQC team
 

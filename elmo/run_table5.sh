@@ -106,8 +106,9 @@ make run
 PERMNET_TRACES="output_permnet/output/traces"
 BITMASK_TRACES="output_bitmask/output/traces"
 MASKED_TRACES="output_masked/output/traces"
+MASKED_SHARED_TRACES="output_masked_shared/output/traces"
 
-for d in "${PERMNET_TRACES}" "${BITMASK_TRACES}" "${MASKED_TRACES}"; do
+for d in "${PERMNET_TRACES}" "${BITMASK_TRACES}" "${MASKED_TRACES}" "${MASKED_SHARED_TRACES}"; do
     if [[ ! -d "$d" ]]; then
         echo "ERROR: expected trace directory $d not produced by ELMO run." >&2
         exit 3
@@ -154,6 +155,36 @@ echo "=== Running analyze_traces.py -- masked d=1 vs unmasked PermNet-RM ==="
     python3 analyze_traces.py "${MASKED_TRACES}" "${PERMNET_TRACES}" \
             "${PLOTS_DIR}/masked_vs_permnet" \
             "PermNet-RM masked d=1" "PermNet-RM (unmasked)" \
+        || echo "[analysis returned non-zero; see log above]"
+} | tee -a "${TABLE5}"
+
+echo
+echo "=== Running analyze_traces.py -- masked d=1 SHARED OUTPUT vs BIT0MASK ==="
+{
+    echo
+    echo "######################################################################"
+    echo "#  Comparison 4: masked d=1 SHARED OUTPUT  vs  BIT0MASK baseline"
+    echo "#  (shares are returned separately; reconstruction is outside the"
+    echo "#  ELMO trigger window, so the unmask-cycle leak of comparison 2"
+    echo "#  is excluded by construction)"
+    echo "######################################################################"
+    python3 analyze_traces.py "${MASKED_SHARED_TRACES}" "${BITMASK_TRACES}" \
+            "${PLOTS_DIR}/masked_shared_vs_bitmask" \
+            "PermNet-RM masked d=1 shared-output" "BIT0MASK (vulnerable baseline)" \
+        || echo "[analysis returned non-zero; see log above]"
+} | tee -a "${TABLE5}"
+
+echo
+echo "=== Running analyze_traces.py -- masked d=1 SHARED OUTPUT vs reconstructed masked d=1 ==="
+{
+    echo
+    echo "######################################################################"
+    echo "#  Comparison 5: masked d=1 SHARED OUTPUT  vs  reconstructed masked d=1"
+    echo "#  (measures exactly the leakage contribution of the final unmask XOR)"
+    echo "######################################################################"
+    python3 analyze_traces.py "${MASKED_SHARED_TRACES}" "${MASKED_TRACES}" \
+            "${PLOTS_DIR}/masked_shared_vs_masked" \
+            "PermNet-RM masked d=1 shared-output" "PermNet-RM masked d=1 (reconstructed)" \
         || echo "[analysis returned non-zero; see log above]"
 } | tee -a "${TABLE5}"
 

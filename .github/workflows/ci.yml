@@ -43,6 +43,12 @@ jobs:
               source/permnet_rm17_masked_d1.c
           /tmp/permnet_rm17_masked
 
+      - name: Compile and run shared-output masked d=1 exhaustive test
+        run: |
+          gcc -${{ matrix.opt }} -Wall -Wextra -o /tmp/permnet_rm17_masked_shared \
+              source/permnet_rm17_masked_d1_shared_output.c
+          /tmp/permnet_rm17_masked_shared
+
       - name: Disassembly check -- RM(1,7) must be free of conditional jumps
         run: |
           # -fno-stack-protector: Ubuntu gcc defaults enable
@@ -112,6 +118,26 @@ jobs:
           fi
           echo "OK: no conditional jumps in masked d=1 encoder at -${{ matrix.opt }}"
 
+      - name: Disassembly check -- shared-output masked d=1 variant must be free of conditional jumps
+        run: |
+          gcc -${{ matrix.opt }} -fno-stack-protector \
+              -c source/permnet_rm17_masked_d1_shared_output.c -o /tmp/masked_shared.o
+          objdump -d /tmp/masked_shared.o \
+            | awk '/<reed_muller_encode_permnet_masked_d1_shared_output>:/{flag=1} flag{print} flag && /^$/{exit}' \
+            > /tmp/masked_shared_${{ matrix.opt }}.asm
+          echo "--- Disassembly (masked d=1 shared-output, -${{ matrix.opt }}) ---"
+          cat /tmp/masked_shared_${{ matrix.opt }}.asm
+          if [ ! -s /tmp/masked_shared_${{ matrix.opt }}.asm ]; then
+            echo "FAIL: could not locate reed_muller_encode_permnet_masked_d1_shared_output in disassembly"
+            exit 1
+          fi
+          COND_JUMPS='\b(je|jne|jg|jge|jl|jle|ja|jae|jb|jbe|jc|jnc|jz|jnz|js|jns|jo|jno|jp|jnp|jcxz|jecxz|jrcxz|jpe|jpo|loop|loope|loopne|loopz|loopnz)\b'
+          if grep -wE "$COND_JUMPS" /tmp/masked_shared_${{ matrix.opt }}.asm; then
+            echo "FAIL: conditional jump found in shared-output masked d=1 encoder at -${{ matrix.opt }}"
+            exit 1
+          fi
+          echo "OK: no conditional jumps in shared-output masked d=1 encoder at -${{ matrix.opt }}"
+
       - name: Disassembly check -- stage-reordered variant must be free of conditional jumps
         run: |
           gcc -${{ matrix.opt }} -fno-stack-protector \
@@ -141,3 +167,4 @@ jobs:
             /tmp/rm*_${{ matrix.opt }}.asm
             /tmp/sr_${{ matrix.opt }}.asm
             /tmp/masked_${{ matrix.opt }}.asm
+            /tmp/masked_shared_${{ matrix.opt }}.asm

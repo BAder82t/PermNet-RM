@@ -17,7 +17,7 @@ have not been applied yet.
   Karatsuba base cases, key re-sampling). Text now states explicitly that
   YODO does not attack the RM encoder directly, but motivates constant-time
   work across the HQC codebase.
-- **Paper (`real text.md`):** The paper's Abstract and §1.3 already describe
+- **Paper preprint:** The paper's Abstract and §1.3 already describe
   YODO accurately ("ciphertext-independent timing leakages from sparse-vector
   processing"). No change required there.
 - **Website copy:** Not yet updated. The website repo sits at
@@ -26,8 +26,7 @@ have not been applied yet.
 
 ### 1.2 Chen et al. citation (ePrint 2026/014)
 
-- **Paper (`real text.md`, §1.4 / third "Why existing countermeasures do not
-  fix this" paragraph):** Already describes Chen et al. correctly as a
+- **Paper preprint (§1.4, third "Why existing countermeasures do not fix this" paragraph):** Already describes Chen et al. correctly as a
   throughput optimisation for HQC polynomial multiplication using additive
   FFT + CRT, not an encoder countermeasure. No change required.
 - **README:** Does not cite Chen et al. No change required.
@@ -102,7 +101,7 @@ have not been applied yet.
 
 - **Current README numbers:** "96.9% accuracy from a single power trace" and
   "STM32F303 (ARM Cortex-M4) target" wording.
-- **Paper (`real text.md`, §1.3):** Uses "98.9% full 128-bit message recovery
+- **Paper preprint (§1.3):** Uses "98.9% full 128-bit message recovery
   from a single decapsulation trace with as few as 20 profiling traces" and
   "99.5% with 60 profiling traces on STM32F415".
 - **Mismatch:** The README and paper disagree on the headline percentage

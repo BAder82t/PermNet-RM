@@ -37,6 +37,40 @@ All notable changes to PermNet-RM are documented here.
   disassembly for conditional-jump mnemonics and fails if any are found.
 
 ### Notes
-- No algorithmic changes in this pass. Encoder code is unchanged.
-- Phase 2 (interleaved 32-bit injection variant) and Phase 3 (Boolean masking
-  composition at d=1) are planned next.
+- No changes to the baseline encoder in `source/permnet_rm17.c` or
+  `source/permnet_rm17_bench.c`. Phase 3 (Boolean masking d=1) planned next.
+
+## [Unreleased] — Phase 2 exploratory variant (negative result)
+
+### Added
+- `source/permnet_rm17_stage_reordered.c` — a PermNet-RM(1,7) encoder that
+  runs the butterfly stages in the order `k = 5, 6, 0, 1, 2, 3, 4` instead of
+  `0..6`. Algebraically equivalent to the baseline (butterfly-stage
+  commutativity over disjoint hypercube axes). Verified exhaustively against
+  the baseline for all 256 messages at all six GCC optimisation levels.
+
+### Why this is in the repo as a negative result
+- The stage-reordered variant is **not** the interleaved-injection mitigation
+  described in paper §5.5, and it does not reduce the bit-6 / bit-7
+  isolation leakage. Each butterfly stage is a left shift only, so running
+  the cross-word stages first cannot pull an isolated `m6` out of `lo1` (or
+  `m7` out of `hi0`) back into `lo0`. The per-stage 32-bit Hamming-weight
+  trace (`./permnet_rm17_stage_reordered -v`) makes the asymmetry visible on
+  single-hot inputs.
+- True interleaved injection in the sense of the paper requires placing
+  message bits at non-standard positions, which changes the linear map the
+  butterfly implements; pure stage reordering cannot achieve that.
+- Kept in the tree so future contributors do not rediscover the dead end.
+
+### CI
+- `.github/workflows/ci.yml` extended to build and run the stage-reordered
+  variant, and to grep its encoder body for conditional jumps across all
+  six GCC optimisation levels.
+
+### Not yet delivered
+- True interleaved injection (non-standard placement + corresponding linear
+  post-network) — open work.
+- ELMO rerun — deferred until a variant that actually changes the bit-6
+  trajectory exists.
+
+

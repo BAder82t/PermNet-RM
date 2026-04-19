@@ -31,6 +31,12 @@ jobs:
           gcc -${{ matrix.opt }} -Wall -Wextra -o /tmp/permnet_rm18 source/permnet_rm18.c
           /tmp/permnet_rm18
 
+      - name: Compile and run stage-reordered variant correctness test
+        run: |
+          gcc -${{ matrix.opt }} -Wall -Wextra -o /tmp/permnet_rm17_sr \
+              source/permnet_rm17_stage_reordered.c
+          /tmp/permnet_rm17_sr
+
       - name: Disassembly check -- RM(1,7) must be free of conditional jumps
         run: |
           gcc -${{ matrix.opt }} -c source/permnet_rm17.c -o /tmp/rm17.o
@@ -71,9 +77,30 @@ jobs:
           fi
           echo "OK: no conditional jumps in RM(1,8) encoder at -${{ matrix.opt }}"
 
+      - name: Disassembly check -- stage-reordered variant must be free of conditional jumps
+        run: |
+          gcc -${{ matrix.opt }} -c source/permnet_rm17_stage_reordered.c -o /tmp/sr.o
+          objdump -d /tmp/sr.o \
+            | awk '/<reed_muller_encode_permnet_stage_reordered>:/{flag=1} flag{print} flag && /^$/{exit}' \
+            > /tmp/sr_${{ matrix.opt }}.asm
+          echo "--- Disassembly (stage-reordered, -${{ matrix.opt }}) ---"
+          cat /tmp/sr_${{ matrix.opt }}.asm
+          if [ ! -s /tmp/sr_${{ matrix.opt }}.asm ]; then
+            echo "FAIL: could not locate reed_muller_encode_permnet_stage_reordered in disassembly"
+            exit 1
+          fi
+          COND_JUMPS='\b(je|jne|jg|jge|jl|jle|ja|jae|jb|jbe|jc|jnc|jz|jnz|js|jns|jo|jno|jp|jnp|jcxz|jecxz|jrcxz|jpe|jpo|loop|loope|loopne|loopz|loopnz)\b'
+          if grep -wE "$COND_JUMPS" /tmp/sr_${{ matrix.opt }}.asm; then
+            echo "FAIL: conditional jump found in stage-reordered encoder at -${{ matrix.opt }}"
+            exit 1
+          fi
+          echo "OK: no conditional jumps in stage-reordered encoder at -${{ matrix.opt }}"
+
       - name: Upload disassembly artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: disassembly-${{ matrix.opt }}
-          path: /tmp/rm*_${{ matrix.opt }}.asm
+          path: |
+            /tmp/rm*_${{ matrix.opt }}.asm
+            /tmp/sr_${{ matrix.opt }}.asm

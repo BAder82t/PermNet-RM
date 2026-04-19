@@ -112,10 +112,47 @@ have not been applied yet.
   (98.9% / 20 profiling traces) so the two documents agree internally. Please
   verify against the ePrint abstract before publishing.
 
-## Not yet done in this phase
+## Part 2 — Interleaved injection (partial, with negative result)
 
-- **Part 2** — Interleaved 32-bit injection encoder + exhaustive correctness +
-  ELMO re-run.
+### 2.1 First attempt: stage reordering — does not work
+
+- **File:** `source/permnet_rm17_stage_reordered.c`.
+- **Idea:** the 7 butterfly stages commute (they act on orthogonal hypercube
+  axes), so running them in the order `k = 5, 6, 0, 1, 2, 3, 4` gives the
+  same output. Correctness is verified exhaustively (256/256 inputs match
+  the baseline byte-for-byte at all six GCC opt levels).
+- **Why it does not fix the bit-6 / bit-7 isolation leakage:** every
+  butterfly stage is a LEFT shift only. Stage k = 5 (`shift-by-32`) moves
+  `lo0 -> lo1`, never `lo1 -> lo0`. Stage k = 6 moves `lo -> hi`, never
+  `hi -> lo`. For single-hot messages with only m6 or m7 set, the isolated
+  bit cannot be pulled back into a word shared with other message bits.
+  The per-stage 32-bit Hamming-weight trace (`-v` flag of the test binary)
+  makes this visible: on `msg = 0x40`, `HW(lo0, lo1, hi0, hi1)` is
+  `(0, 1, 0, 0) -> (0, 1, 0, 0) -> (0, 1, 0, 1) -> (0, 2, 0, 2) -> ...`
+  post-k5 is unchanged, post-k6 copies the isolation into `hi1`, and the
+  subsequent within-word stages propagate `m6` in `lo1` and `hi1` alone.
+  Same shape for `msg = 0x80`.
+- **Status:** kept in the repo as a documented negative result. The file's
+  top-of-file comment explains the failure mode so a future contributor does
+  not rediscover the same dead end.
+
+### 2.2 True interleaved injection — deferred
+
+- The paper's Section 5.5 suggestion ("spread the singleton positions across
+  words in a way that forces mixing earlier") requires placing message bits
+  at positions other than the delta basis `{0, 1, 2, 4, 8, 16, 32, 64}`.
+  Because the zeta transform is invertible and its inverse (over GF(2))
+  equals itself, `T_std` is the unique 128-by-8 placement such that
+  `Z * T = G`. Any other placement `T'` requires replacing the butterfly
+  `Z` with a distinct linear map `B` satisfying `B * T' = G`. `B` can be
+  constructed (it is not unique; the 120-dimensional complement is free)
+  but it is not in general a product of fixed-axis butterfly stages, and
+  designing an efficient straight-line XOR network for `B` is open work.
+- **Status:** deferred. Phase 3 (Boolean masking d = 1) provides an
+  alternative mitigation for the same leakage path that is correct by
+  linearity and straightforward to implement.
+
+## Not yet done in this phase
 - **Part 3** — Boolean masking composition at d=1 + benchmark + ELMO.
 - **Part 4.1/4.2** — ELMO reproducibility artifacts (standalone
   `elmo/README.md` with exact toolchain and a single command to reproduce

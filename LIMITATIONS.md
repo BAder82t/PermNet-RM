@@ -28,9 +28,18 @@ Scope note for readers, reviewers, and downstream integrators.
   an STM32F303 (Cortex-M4), with a noisier STM32F415 secondary target. We have
   not run ChipWhisperer or equivalent measurements on M4 silicon. This is the
   single most important next step and is called out as future work.
-- **Interleaved 32-bit injection variant.** The paper discusses interleaved
-  injection as a mitigation for the 32-bit bit-6 leakage but does not yet
-  implement or measure it. Phase 2 of the project roadmap.
+- **Interleaved 32-bit injection variant.** Not yet implemented. An initial
+  attempt (`source/permnet_rm17_stage_reordered.c`) that only reordered the
+  butterfly stages was shown to be **algebraically equivalent but
+  leakage-equivalent** to the baseline for the exact bits the mitigation was
+  supposed to fix (single-hot m6 and m7 messages), because all within-word
+  and cross-word butterfly stages are left-shifts and cannot pull an isolated
+  bit out of `lo1` or `hi0` back into `lo0`. True interleaved injection in
+  the sense of paper Section 5.5 requires placing message bits at
+  non-standard positions, which changes the linear map the butterfly
+  implements; a pure stage reordering cannot achieve this. Documented as a
+  negative result. Real mitigation is deferred to Phase 3 (Boolean masking
+  d=1) or a bespoke linear-map redesign.
 - **Boolean masking composition at d=1.** Per-share encoding followed by XOR
   reconstruction is described but not yet benchmarked or measured under
   ELMO / a real power model. Phase 3 of the roadmap.

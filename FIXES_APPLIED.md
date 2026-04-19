@@ -152,8 +152,33 @@ have not been applied yet.
   alternative mitigation for the same leakage path that is correct by
   linearity and straightforward to implement.
 
+## Part 3 — Boolean masking, d = 1
+
+- **File:** `source/permnet_rm17_masked_d1.c`.
+- **Implementation:** takes two 1-byte Boolean shares `s0, s1` with
+  `m = s0 XOR s1`; encodes each share independently with the baseline
+  PermNet-RM(1,7) encoder; XORs the codewords. A compiler barrier
+  (`__asm__ volatile ("" ::: "memory")`) sits between the two share
+  encodings to defeat fusion.
+- **Correctness:** exhaustive test across all 256 × 256 = 65,536
+  `(s0, s1)` pairs passes at `-O0, -O1, -O2, -O3, -Os, -Ofast`. Correctness
+  follows directly from the linearity of the baseline encoder over GF(2)
+  (`E(0) = 0` and `E(a XOR b) = E(a) XOR E(b)`); the exhaustive test is a
+  sanity check on that linearity.
+- **Benchmark:** `source/permnet_rm17_bench.c` extended with a fourth
+  encoder entry (`masked-d1`). The benchmark's share is a deterministic
+  counter so the run is reproducible; production code MUST use a
+  cryptographic RNG per call. The per-input timing-spread harness is
+  unchanged and applies to the masked wrapper the same way.
+- **Side-channel status:** correctness is proven; abstract d = 1 probing
+  model security follows by standard masking arguments when `s0` is drawn
+  uniformly at random. No ELMO / hardware power measurement has been
+  performed in this commit; those belong to Phase 4.
+- **CI:** build + run the exhaustive 65,536-pair test at every GCC
+  optimisation level; also grep the masked encoder body for conditional-
+  jump mnemonics.
+
 ## Not yet done in this phase
-- **Part 3** — Boolean masking composition at d=1 + benchmark + ELMO.
 - **Part 4.1/4.2** — ELMO reproducibility artifacts (standalone
   `elmo/README.md` with exact toolchain and a single command to reproduce
   Table 5).

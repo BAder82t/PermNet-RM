@@ -40,9 +40,13 @@ Scope note for readers, reviewers, and downstream integrators.
   implements; a pure stage reordering cannot achieve this. Documented as a
   negative result. Real mitigation is deferred to Phase 3 (Boolean masking
   d=1) or a bespoke linear-map redesign.
-- **Boolean masking composition at d=1.** Per-share encoding followed by XOR
-  reconstruction is described but not yet benchmarked or measured under
-  ELMO / a real power model. Phase 3 of the roadmap.
+- **Boolean masking composition at d=1.** Implemented in
+  `source/permnet_rm17_masked_d1.c` and exhaustively verified for all
+  65,536 (share0, share1) pairs; x86-64 throughput and per-input timing
+  spread reported by `source/permnet_rm17_bench.c`. Power-side-channel
+  validation (ELMO on Cortex-M0, or real hardware on Cortex-M4) has not
+  been performed. Until that measurement exists, the security claim for
+  this construction is confined to the abstract d = 1 probing model.
 - **Performance on platforms other than x86-64 Intel Core Ultra 9 275HX.**
   Other microarchitectures, compilers, and compiler versions may produce
   different cycle-count spreads, even if branch-free.

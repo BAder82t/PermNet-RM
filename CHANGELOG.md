@@ -73,4 +73,36 @@ All notable changes to PermNet-RM are documented here.
 - ELMO rerun — deferred until a variant that actually changes the bit-6
   trajectory exists.
 
+## [Unreleased] — Phase 3 Boolean masking, d = 1
+
+### Added
+- `source/permnet_rm17_masked_d1.c` — Boolean-masked PermNet-RM(1,7)
+  composition at d = 1. Takes two 1-byte Boolean shares `s0, s1` with
+  `m = s0 XOR s1`, encodes each share through the baseline encoder, and
+  XORs the resulting codewords. Correct by linearity of the encoder over
+  GF(2); exhaustively verified across all 65,536 `(s0, s1)` share pairs at
+  every GCC optimisation level (`O0..Ofast`). A compiler barrier
+  (`__asm__ volatile ("" ::: "memory")`) separates the two share encodings
+  to prevent inter-share fusion by the optimiser.
+- `source/permnet_rm17_bench.c` extended with:
+  - A fourth encoder entry (`masked-d1`) in both the throughput and
+    per-input timing distribution tables.
+  - A spot-check masked-vs-baseline correctness gate in `verify_all_three()`
+    (4 random share splits per message).
+- CI: compiles and runs the exhaustive masked correctness harness, and
+  grep-checks the masked encoder body for conditional-jump mnemonics at
+  every optimisation level.
+
+### Notes and honesty
+- The d = 1 probing-model argument is about abstract leakage, not a claim
+  about any specific microprocessor. Empirical validation on ELMO
+  (Cortex-M0) or ChipWhisperer (Cortex-M4) has not been performed in this
+  commit.
+- The deterministic counter-based share used by the benchmark wrapper is
+  there solely for reproducible throughput measurement. Real deployments
+  must draw `s0` from a cryptographic RNG per call and never reuse a share.
+- The masked composition roughly doubles encoder cost. x86-64 throughput
+  figures are printed by the bench harness; cross-platform numbers are
+  out of scope for this commit.
+
 

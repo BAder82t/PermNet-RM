@@ -137,6 +137,36 @@ void rm_encode_branchy(uint64_t cw[2], uint8_t m)
     cw[0] = lo; cw[1] = hi;
 }
 
+/* ============================================================================
+ *   Encoder 4: PermNet-RM with Boolean masking composition, d = 1
+ *   Two independent baseline encodes on shares s0 and s1 = m XOR s0, XORed.
+ *   The compiler barrier between shares prevents fusion.
+ * ============================================================================ */
+static __attribute__((noinline))
+void rm_encode_permnet_masked_d1(uint64_t cw[2], uint8_t s0, uint8_t s1)
+{
+    uint64_t cw0[2], cw1[2];
+    rm_encode_permnet(cw0, s0);
+    __asm__ volatile ("" ::: "memory");
+    rm_encode_permnet(cw1, s1);
+    cw[0] = cw0[0] ^ cw1[0];
+    cw[1] = cw0[1] ^ cw1[1];
+}
+
+/* Wrapper that matches the single-byte encoder_fn signature used by the
+ * throughput / per-input harnesses. Internally it splits the message into a
+ * pseudo-random share and its complement. Note that the share byte here is
+ * derived deterministically from a counter so the bench is reproducible; a
+ * real deployment must use a cryptographic RNG per call. */
+static uint8_t MASK_COUNTER = 0;
+static __attribute__((noinline))
+void rm_encode_permnet_masked_d1_wrapped(uint64_t cw[2], uint8_t m)
+{
+    uint8_t s0 = MASK_COUNTER++;
+    uint8_t s1 = (uint8_t)(m ^ s0);
+    rm_encode_permnet_masked_d1(cw, s0, s1);
+}
+
 /* Force the optimizer to commit results to memory.                          */
 static volatile uint64_t SINK_LO, SINK_HI;
 
@@ -153,6 +183,23 @@ static int verify_all_three(void)
         if (a[0] != c[0] || a[1] != c[1] || a[0] != d[0] || a[1] != d[1]) {
             fprintf(stderr, "MISMATCH for b=0x%02X\n", b);
             return 0;
+        }
+    }
+    /* Spot-check masked composition on a handful of share splits of each b. */
+    for (int b = 0; b < 256; b++) {
+        uint64_t ref[2];
+        rm_encode_permnet(ref, (uint8_t)b);
+        for (int t = 0; t < 4; t++) {
+            uint8_t  s0 = (uint8_t)((b * 37u + t * 101u) & 0xFF);
+            uint8_t  s1 = (uint8_t)(b ^ s0);
+            uint64_t m[2];
+            rm_encode_permnet_masked_d1(m, s0, s1);
+            if (m[0] != ref[0] || m[1] != ref[1]) {
+                fprintf(stderr,
+                        "MASKED MISMATCH b=0x%02X s0=0x%02X s1=0x%02X\n",
+                        b, s0, s1);
+                return 0;
+            }
         }
     }
     return 1;
@@ -316,6 +363,7 @@ int main(void)
     bench_throughput("permnet",  rm_encode_permnet, ITERS);
     bench_throughput("bitmask",  rm_encode_bitmask, ITERS);
     bench_throughput("branchy",  rm_encode_branchy, ITERS);
+    bench_throughput("masked-d1", rm_encode_permnet_masked_d1_wrapped, ITERS);
 
     printf("\nPer-input timing (median over %u trials of %u inner reps),\n"
            "256 distinct message bytes, lower spread => more constant-time:\n",
@@ -325,6 +373,7 @@ int main(void)
     bench_per_input("permnet", rm_encode_permnet);
     bench_per_input("bitmask", rm_encode_bitmask);
     bench_per_input("branchy", rm_encode_branchy);
+    bench_per_input("masked-d1", rm_encode_permnet_masked_d1_wrapped);
 
     return 0;
 }

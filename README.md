@@ -65,7 +65,9 @@ Independent verification (analytical + exhaustive brute force over all 256 RM(1,
 
 `a_0` survives unmasked at position `∅`; `a_i` for `i ≥ 2` survives at both `{i-1}` and `{0, i-1}`, giving a gap of 2. The proof's "linearity and symmetry" justification confuses GF(2)-linearity of the zeta transform with integer-linearity of the Hamming weight; the two are not the same.
 
-Analytical derivation and a restated theorem that is actually true are in [`PROOF_NOTES.md`](./PROOF_NOTES.md). The brute-force verification script is [`source/verify_theorem_4_2.py`](./source/verify_theorem_4_2.py) — run `python3 source/verify_theorem_4_2.py` to regenerate the table. This correction is local to §4.2; the §4.3 bit-level-residues discussion, the §4.5 masking composition, and the §5.5 empirical leakage results are all consistent with the corrected theorem.
+Analytical derivation, a **"where it fails" walk-through**, a proof that the unmasked encoder **cannot structurally be fixed** to make the original theorem hold (the `a_0 → ∅` placement is forced by the zeta transform), and two restated theorems that are actually true are in [`PROOF_NOTES.md`](./PROOF_NOTES.md). Boolean masking at d=1 (already in `source/permnet_rm17_masked_d1.c`) is the structural fix that recovers the intended probing-security property. The brute-force verification script is [`source/verify_theorem_4_2.py`](./source/verify_theorem_4_2.py) — run `python3 source/verify_theorem_4_2.py` to regenerate the table.
+
+**What this means for downstream users (HQC team):** the encoder C code is unchanged and correct; the Jeon-style `BIT0MASK` leakage is eliminated; the Cortex-M0 ELMO reduction (4.6× mean, 84% peak) is real and reproducible; only the paper's formal §4.2 claim needs restating. For full probing-model security, use the masked d=1 variant. See [`PROOF_NOTES.md`](./PROOF_NOTES.md) "Bottom line for the HQC team" section.
 
 ### Stage reordering does NOT fix bit-6 isolation
 

@@ -127,6 +127,127 @@ it is weaker than the paper's current phrasing but faithful.
   logical register, which (once split into 32-bit physical words)
   surfaces as the bit-6 isolation effect at the physical level.
 
+## Where, concretely, does the theorem fail?
+
+Three distinct failure modes, all pinned down by the `Δ_i` table above:
+
+1. **`a_0` at position `∅` is unmasked.** After stage 0, cell `R^(1)_∅`
+   still equals `a_0`. Any probe of that single cell reveals `a_0`.
+   Contribution to the gap: `Δ_0 = 1`.
+2. **`a_i` for `i ≥ 2` duplicates.** After stage 0, cells
+   `R^(1)_{i-1}` and `R^(1)_{0, i-1}` both equal `a_i` (the singleton
+   survives unchanged; the pair equals `0 ⊕ a_i` via the stage-0
+   XOR). Two unmasked single-bit cells per message bit.
+   Contribution: `Δ_i = 2` for `i = 2..m`.
+3. **Only `a_1` is properly XOR-masked.** Cell `R^(1)_{{0}}` becomes
+   `a_0 ⊕ a_1`, which has expected Hamming weight 1/2 regardless of
+   either bit. This is the one bit for which the theorem's conclusion
+   holds. Contribution: `Δ_1 = 0`.
+
+The common root is structural: PermNet's injection places `a_0` at
+`∅` and `a_i` at the singleton `{i-1}`, and stage 0 only XORs subsets
+containing coordinate 0 with their `{0}`-deletion. Only the single
+pair `({0}, ∅)` crosses this stage's boundary; everything else either
+stays untouched or collides into its own duplicate.
+
+## Can the unmasked encoder be fixed so the original theorem holds?
+
+Short answer: **no, not without changing the output distribution or
+adding masking**. Here is why.
+
+1. **`a_0` at `∅` is forced by the algebra.** The zeta transform is
+   invertible over GF(2) and the GF(2) Möbius inverse of the all-ones
+   function (the column of `G` for `a_0`) is the indicator of `∅`.
+   Any other placement of `a_0` changes the codeword `a_0` contributes
+   to, i.e. changes the output of `reed_muller_encode`. You cannot
+   remove the `R^(1)_∅ = a_0` cell without breaking correctness.
+2. **Re-ordering butterfly stages does not help.** The 7 stages
+   commute because they act on orthogonal hypercube axes (verified in
+   `source/permnet_rm17_stage_reordered.c` as an algebraic sanity
+   check). Reordering cannot reduce the number of stage-1 single-bit
+   cells that arise after any particular stage, because each stage is
+   a left shift and cannot pull an already-isolated bit back into a
+   mixed cell. This is the same reason stage-reordering did not fix
+   the 32-bit bit-6 isolation empirically (see `LIMITATIONS.md`).
+3. **Pre-mixing the message bits (apply an invertible `8×8` GF(2)
+   map `A` to the injection vector) does not help for this purpose.**
+   Any such pre-mix either preserves the single-bit residual
+   structure (if `A` is a permutation) or shifts it to a different
+   set of message bits (if `A` mixes bits), but the total
+   "single-bit positions in `R^(1)`" count remains `2(m+1) - 1` and
+   cannot be zero for `m ≥ 1`. Applying the inverse `A^{-1}` to the
+   output is also not an option, because the output `G · A · m` is a
+   different linear code than `G · m` in general.
+4. **Duplicating injections (e.g., put `a_i` at both `{i-1}` and
+   `{0, i-1}` for `i ≥ 2`) breaks correctness.** The extra injection
+   adds `sum_{k ∈ j, k ≥ 1} a_{k+1}` to `codeword[j]` for every `j`
+   with `0 ∈ j`. The resulting map is no longer the RM(1,m)
+   generator; the zeta transform is invertible, so the output
+   literally encodes a different message.
+5. **Post-mixing the codeword (apply an invertible `128 × 128`
+   GF(2) map `B` at the end to "un-mix" residual dependencies)
+   changes the output bytes. It does not map back to the RM(1,m)
+   codeword of the input message, so it is not a drop-in
+   replacement.**
+
+The deepest reason: `wt(R^(1))` is the **integer** Hamming weight of
+a GF(2)-linear function of the message, and the integer-valued
+conditional expectations `E[wt | a_i = 0]` and `E[wt | a_i = 1]`
+differ by the **number of GF(2)-linearly-independent cells of
+`R^(1)` in which `a_i` appears unmasked**. That count is a
+combinatorial property of the injection-plus-stage-0 pattern. The
+zeta-butterfly injection pattern forces this count to be 1 for `a_0`
+and 2 for each `a_i` with `i ≥ 2`. No rearrangement of the same
+linear algebra can drive all of them to 0 simultaneously.
+
+## What does fix it
+
+**Boolean masking at `d = 1`** (paper §4.5). Under masking, each
+share's `R^(1)` is a function of a uniformly random share, not of
+the plaintext message `m`. The probing-model correlation between
+any single-share intermediate value and any `a_i` is exactly zero —
+which is the property the original Theorem 4.2 was trying to state.
+The ISW composition theorem then gives `1`-probing security at the
+encoder level.
+
+The masked encoder is already in the repository
+(`source/permnet_rm17_masked_d1.c`), exhaustively verified over all
+`256 × 256` share pairs, and benchmarked. It is the structural fix
+that makes the (restated) theorem hold for all message bits, not
+just `a_1`.
+
+Empirical caveat (from `elmo/RUN_2026-04-19.md`): the masked
+composition as currently written reconstructs the codeword with a
+final XOR. That XOR is unmasked by construction and in the ELMO
+Hamming-weight model it leaks the message bit in the output write
+(bit 6 peak drops only from `3,779.6` to `3,794.5`, but leaking-
+cycle fraction collapses from 38% to 3%). For a fully probing-secure
+output, the encoder's public API must return the codeword in shared
+form `(cw_share0, cw_share1)` and the downstream HQC consumer must
+operate on both shares. That is an integration-level change and is
+noted as a follow-up.
+
+## Bottom line for the HQC team
+
+- The **code** is unchanged and correct.
+- The **Jeon-style `BIT0MASK` leakage** is eliminated by construction
+  on x86-64 (no `neg reg` on a 0/1-valued register anywhere in the
+  encoder disassembly across six optimisation levels). This is the
+  attack path Jeon actually exploits.
+- The **empirical reduction on Cortex-M0 ELMO** (4.6× mean, 84% of
+  peak) is real and reproducible; see `elmo/RUN_2026-04-19.md`.
+- The **unmasked encoder cannot satisfy the paper's original §4.2
+  formal claim** — the enumeration above shows why, and the analysis
+  in the "Can the unmasked encoder be fixed?" section shows that no
+  local rearrangement of the zeta-butterfly structure fixes it.
+  Masking (§4.5) is the fix, at the cost of a ~2× encoder runtime
+  plus one fresh byte of randomness per call. This is consistent
+  with the paper's own masking section and with the masked
+  implementation already in the repository.
+- For **Cortex-M4** (Jeon's actual target), hardware measurements
+  are the next credible step and are independent of the theorem
+  question.
+
 ## Action for the paper authors
 
 1. Replace Theorem 4.2 with either 4.2′ or 4.2″ above.

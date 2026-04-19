@@ -20,7 +20,12 @@ LDLIBS      = -lgcc
 # inside the run-* rules. `$(abspath ...)` resolves without requiring the
 # path to exist yet (unlike $(realpath ...)).
 ELMO        = $(abspath ../elmo_tool/elmo)
-ELMO_COEFFS = $(abspath ../elmo_tool/coeffs.txt)
+# Paper Table 5 was produced with coeffs_M3.txt (mixed-sign values in the
+# +/-800 range). The upstream elmo_tool also ships coeffs.txt (small
+# positive floats 0.04-0.09); swapping to that file changes the numerical
+# output of ELMO and is NOT what the paper used. Leaving coeffs_M3.txt
+# here so reruns match the paper's Table 5.
+ELMO_COEFFS = $(abspath ../elmo_tool/coeffs_M3.txt)
 ELMO_DATA   = $(abspath ../elmo_tool/Examples/randdata100000.txt)
 
 # Common objects

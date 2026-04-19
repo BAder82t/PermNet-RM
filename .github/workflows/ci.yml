@@ -45,7 +45,15 @@ jobs:
 
       - name: Disassembly check -- RM(1,7) must be free of conditional jumps
         run: |
-          gcc -${{ matrix.opt }} -c source/permnet_rm17.c -o /tmp/rm17.o
+          # -fno-stack-protector: Ubuntu gcc defaults enable
+          # -fstack-protector-strong, which wraps any function that has a
+          # local array with a canary check ending in `je __stack_chk_fail`.
+          # That `je` is canary-vs-TLS, not message-dependent, but the
+          # grep below would catch it. We disable the wrapper for the
+          # disassembly-check build only; the correctness-test builds
+          # above keep the default hardening.
+          gcc -${{ matrix.opt }} -fno-stack-protector \
+              -c source/permnet_rm17.c -o /tmp/rm17.o
           # Extract only the encoder body (from its label to the next blank line).
           objdump -d /tmp/rm17.o \
             | awk '/<reed_muller_encode_permnet>:/{flag=1} flag{print} flag && /^$/{exit}' \
@@ -66,7 +74,8 @@ jobs:
 
       - name: Disassembly check -- RM(1,8) must be free of conditional jumps
         run: |
-          gcc -${{ matrix.opt }} -c source/permnet_rm18.c -o /tmp/rm18.o
+          gcc -${{ matrix.opt }} -fno-stack-protector \
+              -c source/permnet_rm18.c -o /tmp/rm18.o
           objdump -d /tmp/rm18.o \
             | awk '/<reed_muller_encode_permnet_rm18>:/{flag=1} flag{print} flag && /^$/{exit}' \
             > /tmp/rm18_${{ matrix.opt }}.asm
@@ -85,7 +94,8 @@ jobs:
 
       - name: Disassembly check -- masked d=1 variant must be free of conditional jumps
         run: |
-          gcc -${{ matrix.opt }} -c source/permnet_rm17_masked_d1.c -o /tmp/masked.o
+          gcc -${{ matrix.opt }} -fno-stack-protector \
+              -c source/permnet_rm17_masked_d1.c -o /tmp/masked.o
           objdump -d /tmp/masked.o \
             | awk '/<reed_muller_encode_permnet_masked_d1>:/{flag=1} flag{print} flag && /^$/{exit}' \
             > /tmp/masked_${{ matrix.opt }}.asm
@@ -104,7 +114,8 @@ jobs:
 
       - name: Disassembly check -- stage-reordered variant must be free of conditional jumps
         run: |
-          gcc -${{ matrix.opt }} -c source/permnet_rm17_stage_reordered.c -o /tmp/sr.o
+          gcc -${{ matrix.opt }} -fno-stack-protector \
+              -c source/permnet_rm17_stage_reordered.c -o /tmp/sr.o
           objdump -d /tmp/sr.o \
             | awk '/<reed_muller_encode_permnet_stage_reordered>:/{flag=1} flag{print} flag && /^$/{exit}' \
             > /tmp/sr_${{ matrix.opt }}.asm

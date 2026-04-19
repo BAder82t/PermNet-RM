@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        opt: [O0, O1, O2, O3, Os, Ofast]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc binutils
+
+      - name: Compile and run exhaustive correctness test (RM(1,7))
+        run: |
+          gcc -${{ matrix.opt }} -Wall -Wextra -o /tmp/permnet_rm17 source/permnet_rm17.c
+          /tmp/permnet_rm17
+
+      - name: Compile and run exhaustive correctness test (RM(1,8))
+        run: |
+          gcc -${{ matrix.opt }} -Wall -Wextra -o /tmp/permnet_rm18 source/permnet_rm18.c
+          /tmp/permnet_rm18
+
+      - name: Disassembly check -- RM(1,7) must be free of conditional jumps
+        run: |
+          gcc -${{ matrix.opt }} -c source/permnet_rm17.c -o /tmp/rm17.o
+          # Extract only the encoder body (from its label to the next blank line).
+          objdump -d /tmp/rm17.o \
+            | awk '/<reed_muller_encode_permnet>:/{flag=1} flag{print} flag && /^$/{exit}' \
+            > /tmp/rm17_${{ matrix.opt }}.asm
+          echo "--- Disassembly (RM(1,7), -${{ matrix.opt }}) ---"
+          cat /tmp/rm17_${{ matrix.opt }}.asm
+          if [ ! -s /tmp/rm17_${{ matrix.opt }}.asm ]; then
+            echo "FAIL: could not locate reed_muller_encode_permnet in disassembly"
+            exit 1
+          fi
+          # Conditional x86-64 jumps. jmp (unconditional) is allowed.
+          COND_JUMPS='\b(je|jne|jg|jge|jl|jle|ja|jae|jb|jbe|jc|jnc|jz|jnz|js|jns|jo|jno|jp|jnp|jcxz|jecxz|jrcxz|jpe|jpo|loop|loope|loopne|loopz|loopnz)\b'
+          if grep -wE "$COND_JUMPS" /tmp/rm17_${{ matrix.opt }}.asm; then
+            echo "FAIL: conditional jump found in RM(1,7) encoder at -${{ matrix.opt }}"
+            exit 1
+          fi
+          echo "OK: no conditional jumps in RM(1,7) encoder at -${{ matrix.opt }}"
+
+      - name: Disassembly check -- RM(1,8) must be free of conditional jumps
+        run: |
+          gcc -${{ matrix.opt }} -c source/permnet_rm18.c -o /tmp/rm18.o
+          objdump -d /tmp/rm18.o \
+            | awk '/<reed_muller_encode_permnet_rm18>:/{flag=1} flag{print} flag && /^$/{exit}' \
+            > /tmp/rm18_${{ matrix.opt }}.asm
+          echo "--- Disassembly (RM(1,8), -${{ matrix.opt }}) ---"
+          cat /tmp/rm18_${{ matrix.opt }}.asm
+          if [ ! -s /tmp/rm18_${{ matrix.opt }}.asm ]; then
+            echo "FAIL: could not locate reed_muller_encode_permnet_rm18 in disassembly"
+            exit 1
+          fi
+          COND_JUMPS='\b(je|jne|jg|jge|jl|jle|ja|jae|jb|jbe|jc|jnc|jz|jnz|js|jns|jo|jno|jp|jnp|jcxz|jecxz|jrcxz|jpe|jpo|loop|loope|loopne|loopz|loopnz)\b'
+          if grep -wE "$COND_JUMPS" /tmp/rm18_${{ matrix.opt }}.asm; then
+            echo "FAIL: conditional jump found in RM(1,8) encoder at -${{ matrix.opt }}"
+            exit 1
+          fi
+          echo "OK: no conditional jumps in RM(1,8) encoder at -${{ matrix.opt }}"
+
+      - name: Upload disassembly artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: disassembly-${{ matrix.opt }}
+          path: /tmp/rm*_${{ matrix.opt }}.asm
